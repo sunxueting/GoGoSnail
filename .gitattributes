@@ -1,0 +1,13 @@
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.ttf binary
+# Preserve serialized baseline assets byte-for-byte across operating systems.
+vendor/legacy-build/res/** -text

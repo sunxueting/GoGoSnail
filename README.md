@@ -1,37 +1,65 @@
-## Welcome to GitHub Pages
+# 蜗牛跳圈记 · GoGoSnail
 
-You can use the [editor on GitHub](https://github.com/sunxueting/GoGoSnail/edit/master/README.md) to maintain and preview the content for your website in Markdown files.
+基于 Cocos Creator 1.9.2 旧工程恢复的微信小游戏。点击屏幕控制蜗牛从旋转圆盘起跳，收集道具、避开障碍，挑战本机最高纪录。
 
-Whenever you commit to this repository, GitHub Pages will run [Jekyll](https://jekyllrb.com/) to rebuild the pages in your site, from the content in your Markdown files.
+当前版本为 **1.1.3**。2026-10-26 11:49:01 已提交微信审核，当前记录为“审核中”，尚未发布线上版本。后台状态应以微信公众平台为准。
 
-### Markdown
+## 工程结构
 
-Markdown is a lightweight and easy-to-use syntax for styling your writing. It includes conventions for
+| 路径 | 用途 |
+| --- | --- |
+| `source/` | 可编辑场景、脚本、美术和音频，保留原 Creator UUID |
+| `tools/` | 构建、游戏流程、隐私授权、长屏和复活检查 |
+| `vendor/legacy-build/` | 保留序列化场景所需的旧版资源、网页引擎、组件 UUID 映射 |
+| `vendor/cocos-wechat-engine.js` | 固定上游提交生成的微信引擎 |
+| `vendor/cocos-creator-packages-weapp-adapter-09cc8c4/` | 固定版本的官方微信适配器 |
+| `docs/releases/` | 版本记录 |
+| `build/` | 自动生成的网页与微信工程，不进入 Git |
+| `artifacts/` | 本机测试报告、截图和预览二维码，不进入 Git |
 
-```markdown
-Syntax highlighted code block
+本仓库不是新版 Creator 迁移工程。标准构建复用旧版序列化资源，并从 `source/assets` 生成脚本，以保留场景与组件关联。更改脚本可直接重建；在 Creator 中修改场景、美术或音频时，也需重新生成对应的基线资源，不能只修改 `source/` 后假设资源会自动重导入。
 
-# Header 1
-## Header 2
-### Header 3
+## 安装和构建
 
-- Bulleted
-- List
+使用 Node.js 22 或更高版本：
 
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+```sh
+npm ci
+npm run build
 ```
 
-For more details see [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+构建默认使用仓库中的基线资源，不依赖某一台电脑的桌面目录。生成：
 
-### Jekyll Themes
+- `build/web/`：本地网页验证版本。
+- `build/wechat/`：导入微信开发者工具的小游戏工程；当前 AppID 为 `wx60136090bb46174f`。
 
-Your Pages site will use the layout and styles from the Jekyll theme you have selected in your [repository settings](https://github.com/sunxueting/GoGoSnail/settings). The name of this theme is saved in the Jekyll `_config.yml` configuration file.
+如需使用重新导出的旧版构建，可设置 `SNAIL_LEGACY_BUILD`。该目录需有 `res/`、原始引擎、样式、settings 和 `component-ids.json`；也兼容原 `src/project.07edb.js` 提取组件映射的方式。
 
-### Support or Contact
+## 验证
 
-Having trouble with Pages? Check out our [documentation](https://help.github.com/categories/github-pages-basics/) or [contact support](https://github.com/contact) and we’ll help you sort it out.
+首次在没有本机 Chrome 的环境运行时安装浏览器：
+
+```sh
+npx playwright install chromium
+npm test
+npm run test:profile
+npm run test:layout
+```
+
+检查仅启动独立浏览器访问本地游戏，不读取已登录的个人浏览器。macOS 存在常规安装的 Chrome 时优先使用该路径，也可用 `SNAIL_CHROME_PATH` 指定浏览器。其他环境默认使用 Playwright Chromium。
+
+- `npm test`：教程、跳跃、失败、每局一次免费继续、重开及本机纪录。
+- `npm run test:profile`：使用模拟微信 API 和合成信息验证授权、拒绝、删除、撤销及隐私确认衔接。
+- `npm run test:layout`：四种尺寸的背景覆盖，以及复活目标和边界。
+
+GitHub Actions 在提交及拉取请求时执行以上构建和检查。网页或模拟 API 检查不等于微信真机或平台审核通过；微信上传和发布仍通过官方开发者工具与公众平台办理。
+
+## 当前功能
+
+- 单人休闲跳跃，本机保存最高分和教程状态。
+- 每局一次免费继续，修复长屏背景和安全复活位置。
+- 本机纪录页可选授权头像昵称；仅本机保存，支持删除，拒绝授权仍可游戏。
+- 没有广告、充值、联网排行榜、自建服务或公开聊天。
+- 后台正式名称为“蜗牛跳圈记”，现有游戏内美术标题仍为 GoGoSnail。
+
+版本管理约定见 [docs/版本管理.md](docs/版本管理.md)，版本变化见 [CHANGELOG.md](CHANGELOG.md)。引擎、适配器及第三方许可来源见 [vendor/PROVENANCE.md](vendor/PROVENANCE.md)。素材及第三方组件依各自授权使用；本仓库没有为全部内容新增统一开源许可。

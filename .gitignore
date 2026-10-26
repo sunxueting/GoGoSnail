@@ -1,0 +1,26 @@
+node_modules/
+build/
+artifacts/
+.DS_Store
+source/library/
+source/temp/
+vendor/cocos-engine/
+source/build/
+source/local/
+source/profiles/
+source/logs/
+**/project.private.config.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.log
+# Local operational history and UI diagnostics are not project source.
+/docs/上线计划.md
+/docs/连接故障记录.md
+/docs/发布资料草稿.md
+/docs/提审填写材料.md
+/tools/ide-ui.swift

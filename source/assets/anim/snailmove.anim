@@ -1,0 +1,175 @@
+{
+  "__type__": "cc.AnimationClip",
+  "_name": "snailmove",
+  "_objFlags": 0,
+  "_rawFiles": null,
+  "_duration": 1.5,
+  "sample": 60,
+  "speed": 1,
+  "wrapMode": "2",
+  "curveData": {
+    "paths": {
+      "snail03": {
+        "props": {
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                22,
+                -16
+              ]
+            },
+            {
+              "frame": 0.75,
+              "value": [
+                22,
+                -26.6
+              ]
+            },
+            {
+              "frame": 1.5,
+              "value": [
+                22,
+                -16
+              ]
+            }
+          ],
+          "scaleY": [
+            {
+              "frame": 0,
+              "value": 0.32
+            },
+            {
+              "frame": 0.75,
+              "value": 0.24
+            },
+            {
+              "frame": 1.5,
+              "value": 0.32
+            }
+          ]
+        }
+      },
+      "snail01": {
+        "props": {
+          "scaleY": [
+            {
+              "frame": 0,
+              "value": 0.32
+            },
+            {
+              "frame": 0.7666666666666667,
+              "value": 0.26
+            },
+            {
+              "frame": 1.5,
+              "value": 0.32
+            }
+          ],
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                7,
+                -14
+              ]
+            },
+            {
+              "frame": 0.7666666666666667,
+              "value": [
+                7,
+                -28
+              ]
+            },
+            {
+              "frame": 1.5,
+              "value": [
+                7,
+                -14
+              ]
+            }
+          ],
+          "color": [
+            {
+              "frame": 0,
+              "value": {
+                "__type__": "cc.Color",
+                "r": 255,
+                "g": 255,
+                "b": 255,
+                "a": 255
+              }
+            }
+          ]
+        }
+      },
+      "snail02": {
+        "props": {
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                -7,
+                34.99999997499998
+              ]
+            },
+            {
+              "frame": 0.7666666666666667,
+              "value": [
+                -7,
+                -6
+              ]
+            },
+            {
+              "frame": 1.5,
+              "value": [
+                -7,
+                35
+              ]
+            }
+          ],
+          "color": [
+            {
+              "frame": 0,
+              "value": {
+                "__type__": "cc.Color",
+                "r": 255,
+                "g": 255,
+                "b": 255,
+                "a": 255
+              }
+            }
+          ]
+        }
+      },
+      "snail04": {
+        "props": {
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                -22,
+                -32.00000002500008
+              ]
+            },
+            {
+              "frame": 0.7666666666666667,
+              "value": [
+                -22,
+                -55
+              ]
+            },
+            {
+              "frame": 1.5,
+              "value": [
+                -22,
+                -32
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "events": []
+}

@@ -1,0 +1,39 @@
+{
+  "__type__": "cc.AnimationClip",
+  "_name": "white_blink",
+  "_objFlags": 0,
+  "_rawFiles": null,
+  "_duration": 0.5333333333333333,
+  "sample": 60,
+  "speed": 1,
+  "wrapMode": 1,
+  "curveData": {
+    "paths": {
+      "white": {
+        "props": {
+          "opacity": [
+            {
+              "frame": 0,
+              "value": 125
+            },
+            {
+              "frame": 0.08333333333333333,
+              "value": 255,
+              "curve": [
+                0.4,
+                0.4,
+                0.6,
+                0.6
+              ]
+            },
+            {
+              "frame": 0.5333333333333333,
+              "value": 0
+            }
+          ]
+        }
+      }
+    }
+  },
+  "events": []
+}

@@ -1,0 +1,12 @@
+mapCount,Level,LevelDir,cameraSpeed
+0,1,LV0Map,25
+1,2,LV1Map,25
+4,2spec,LVSpec,25
+5,2.5,LV1Map,30
+6,3,LV2Map,35
+8,4,LV3Map,45
+11,4spec,LVSpec,45
+12,5,LV4Map,50
+15,6,LV5Map,55
+18,6spec,LVSpec,55
+19,7,LV6Map,65

@@ -1,0 +1,30 @@
+{
+  "ver": "1.0.0",
+  "uuid": "ac655d83-aa62-46cb-bdc8-b00573099c9d",
+  "type": "sprite",
+  "wrapMode": "clamp",
+  "filterMode": "bilinear",
+  "subMetas": {
+    "onemorelife": {
+      "ver": "1.0.3",
+      "uuid": "26350eed-c019-4729-89a8-88cd77233f69",
+      "rawTextureUuid": "ac655d83-aa62-46cb-bdc8-b00573099c9d",
+      "trimType": "auto",
+      "trimThreshold": 1,
+      "rotated": false,
+      "offsetX": 0,
+      "offsetY": 0,
+      "trimX": 0,
+      "trimY": 0,
+      "width": 247,
+      "height": 240,
+      "rawWidth": 247,
+      "rawHeight": 240,
+      "borderTop": 0,
+      "borderBottom": 0,
+      "borderLeft": 0,
+      "borderRight": 0,
+      "subMetas": {}
+    }
+  }
+}

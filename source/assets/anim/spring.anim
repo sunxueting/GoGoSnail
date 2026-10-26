@@ -1,0 +1,93 @@
+{
+  "__type__": "cc.AnimationClip",
+  "_name": "spring",
+  "_objFlags": 0,
+  "_rawFiles": null,
+  "_duration": 0.3333333333333333,
+  "sample": 60,
+  "speed": 1,
+  "wrapMode": "0",
+  "curveData": {
+    "paths": {
+      "hat_eye02": {
+        "props": {
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                47.4,
+                -7
+              ]
+            },
+            {
+              "frame": 0.3333333333333333,
+              "value": [
+                47,
+                13
+              ]
+            }
+          ]
+        }
+      },
+      "hat_eye04": {
+        "props": {
+          "position": [
+            {
+              "frame": 0,
+              "value": [
+                -47,
+                -5
+              ]
+            },
+            {
+              "frame": 0.3333333333333333,
+              "value": [
+                -47,
+                15
+              ]
+            }
+          ]
+        }
+      },
+      "hat_head": {
+        "props": {
+          "scale": [
+            {
+              "frame": 0,
+              "value": {
+                "__type__": "cc.Vec2",
+                "x": 1,
+                "y": 1
+              }
+            },
+            {
+              "frame": 0.05,
+              "value": {
+                "__type__": "cc.Vec2",
+                "x": 0.76,
+                "y": 0.76
+              }
+            },
+            {
+              "frame": 0.13333333333333333,
+              "value": {
+                "__type__": "cc.Vec2",
+                "x": 1.35,
+                "y": 1.35
+              }
+            },
+            {
+              "frame": 0.3333333333333333,
+              "value": {
+                "__type__": "cc.Vec2",
+                "x": 1,
+                "y": 1
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "events": []
+}

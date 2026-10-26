@@ -1,0 +1,31 @@
+{
+  "__type__": "cc.AnimationClip",
+  "_name": "waitLoading",
+  "_objFlags": 0,
+  "_rawFiles": null,
+  "_duration": 1,
+  "sample": 60,
+  "speed": 1,
+  "wrapMode": "2",
+  "curveData": {
+    "paths": {
+      "New Sprite(Splash)": {
+        "comps": {
+          "cc.Sprite": {
+            "fillRange": [
+              {
+                "frame": 0,
+                "value": 0
+              },
+              {
+                "frame": 1,
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "events": []
+}

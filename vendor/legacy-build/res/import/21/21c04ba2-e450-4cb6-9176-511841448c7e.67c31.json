@@ -1,0 +1,1 @@
+{"__type__":"cc.AnimationClip","_name":"circleComplete","_duration":3.0166666666666666,"curveData":{"props":{"opacity":[]},"paths":{"circleComplete":{"props":{"opacity":[{"frame":0,"value":0},{"frame":0.4166666666666667,"value":255},{"frame":3.0166666666666666,"value":0}]}}}}}

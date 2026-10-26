@@ -1,0 +1,102 @@
+[
+  {
+    "uuid": "3f8ae79SoJKDaucksr4wur/",
+    "name": "AdMobManager"
+  },
+  {
+    "uuid": "c01d8/v8fhAC6XSozg8lXYP",
+    "name": "AudioSourceManager"
+  },
+  {
+    "uuid": "af17e5sIMJKNK2gLxQm1SgX",
+    "name": "BgChangeInstance"
+  },
+  {
+    "uuid": "ee6624j5HtBWJsvkgLcMkim",
+    "name": "BonusCreator"
+  },
+  {
+    "uuid": "b6243csrt1FKbdr58vhR/ig",
+    "name": "Bonus"
+  },
+  {
+    "uuid": "d20b6DSvhVEir8koFHZzvkV",
+    "name": "DeadDestory"
+  },
+  {
+    "uuid": "216a8YPf4FBbqijo0cd1h3e",
+    "name": "DirCircleRun"
+  },
+  {
+    "uuid": "882e4jviiFID6+s/4RIBQWt",
+    "name": "EnergyActor"
+  },
+  {
+    "uuid": "268a1O8ysVFT6JJKolupdgc",
+    "name": "FacebookInstant"
+  },
+  {
+    "uuid": "24f27bPk2pHeY2VkUwaJCmt",
+    "name": "GameLogic"
+  },
+  {
+    "uuid": "e4f88adp3hERoJ48DZ2PSAl",
+    "name": "LabelLocalized"
+  },
+  {
+    "uuid": "29806Fr/PdBHb5aUrjw0N3/",
+    "name": "LeaderBoardManager"
+  },
+  {
+    "uuid": "74885XaXLRG3JhcwB3j/cTS",
+    "name": "LoadNextMap"
+  },
+  {
+    "uuid": "f23cccIDl5HTJCqmO10eBkb",
+    "name": "MapDataManager"
+  },
+  {
+    "uuid": "f9b352jbGtMIqjEuud60Wpx",
+    "name": "OnTouchCtrl"
+  },
+  {
+    "uuid": "0c7f6ApBIhPvrmsvI/+ij9v",
+    "name": "PlayerControl"
+  },
+  {
+    "uuid": "10fa74cf3pHAYAfLSub+v/W",
+    "name": "ScoreManager"
+  },
+  {
+    "uuid": "37bd9ah2hJPKIelDb7cvMXN",
+    "name": "UIManager"
+  },
+  {
+    "uuid": "d7300EwfbpO9Ll9FKwFN3Xr",
+    "name": "UtilManager"
+  },
+  {
+    "uuid": "a4d46JwTkJC9KFDbcXjU4ga",
+    "name": "cameraControl"
+  },
+  {
+    "uuid": "920c5VLzJxKjYCAoIUwUHym",
+    "name": "en"
+  },
+  {
+    "uuid": "93789C/shtIL6entYsZPjee",
+    "name": "i18n"
+  },
+  {
+    "uuid": "9d86a1b/aNL8JDqJ7+E0XIU",
+    "name": "physics-settings"
+  },
+  {
+    "uuid": "69decSgpRlE1rzEKp0RzG3V",
+    "name": "polyglot"
+  },
+  {
+    "uuid": "87f1fs0gohHDIfNg4aePXbt",
+    "name": "zh"
+  }
+]
