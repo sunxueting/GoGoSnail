@@ -78,17 +78,19 @@ try {
   assert.ok(state.last.top >= 0 && state.last.top + state.last.height <= 844 && state.last.left >= 0 && state.last.left + state.last.width <= 390, 'Native button stays inside viewport');
   assert.ok(state.last.width > 150 && state.last.height > 30, 'Native button matches visible control, not a tiny label');
   results.push({ name: 'Explicit native authorization button only on record page; retina layout', passed: true, rect: state.last });
-  const tapPrivacy = async name => {
-    const point = await page.evaluate(name => {
-      const node = cc.find('CameraCon/Camera/UILayer/Leaderboard/PrivacyConsentPanel/' + name);
+  const tapNode = async nodePath => {
+    const point = await page.evaluate(nodePath => {
+      const node = cc.find(nodePath);
+      if (!node || !node.activeInHierarchy) throw new Error('Control is not visible: ' + nodePath);
       let rect = node.getBoundingBoxToWorld();
       if (cc.Camera.main && cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
       const viewport = cc.view.getViewPortRect(), frame = cc.view.getFrameSize(), dpr = cc.view.getDevicePixelRatio();
       return { x: (viewport.x + (rect.x + rect.width / 2) * cc.view.getScaleX()) / (frame.width * dpr) * innerWidth, y: innerHeight - (viewport.y + (rect.y + rect.height / 2) * cc.view.getScaleY()) / (frame.height * dpr) * innerHeight };
-    }, name);
+    }, nodePath);
     await page.touchscreen.tap(point.x, point.y);
     await page.waitForTimeout(50);
   };
+  const tapPrivacy = name => tapNode('CameraCon/Camera/UILayer/Leaderboard/PrivacyConsentPanel/' + name);
   const requestPrivacy = () => page.evaluate(() => __profileMock.privacyListener(result => __profileMock.privacyEvents.push(result.event)));
   await requestPrivacy();
   assert.deepEqual(await page.evaluate(() => __profileMock.privacyEvents), ['exposureAuthorization'], 'Never silently agree');
@@ -147,7 +149,8 @@ try {
   assert.equal((await snapshot()).name, '测试玩家');
   results.push({ name: 'Profile survives restart and records reopen', passed: true });
   await page.evaluate(() => localStorage.setItem('TopScore', '123'));
-  await page.touchscreen.tap(195, 462);
+  await tapNode('CameraCon/Camera/UILayer/Leaderboard/PlayerProfilePanel/ProfileDelete');
+  assert.equal((await snapshot()).stored, null, 'Touching the delete control removes saved identity');
   await page.evaluate(() => __profileMock.buttons.slice(-1)[0].tap({ userInfo: { nickName: '迟到回调', avatarUrl: '' } }));
   assert.equal((await snapshot()).stored, null, 'Stale callback must not restore deleted data');
   assert.equal(await page.evaluate(() => localStorage.getItem('TopScore')), '123');
