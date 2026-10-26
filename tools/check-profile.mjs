@@ -46,8 +46,13 @@ try {
   const base = `http://127.0.0.1:${server.address().port}`;
   const open = async () => {
     await page.goto(base);
-    await page.waitForFunction(() => window.__snailSceneReady);
-    await page.waitForTimeout(300);
+    // The scene callback runs before asynchronously loaded record prefabs are ready.
+    // Wait for the resource this test uses rather than a machine-specific delay.
+    await page.waitForFunction(() => {
+      if (!window.__snailSceneReady) return false;
+      const manager = cc.find('MapDataManager').getComponent('UtilManager');
+      return !!(manager && manager._LdEntry && manager._LdEntry.data);
+    });
   };
   const enter = async () => {
     await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
