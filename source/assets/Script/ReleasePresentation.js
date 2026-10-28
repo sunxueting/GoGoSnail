@@ -93,6 +93,11 @@ var Presentation = cc.Class({
         if (startAnimation) { startAnimation.stop(); startAnimation.enabled = false; }
         this.startControl.setScale(0.9);
 
+        // The gameplay SCORE caption is baked into a sprite, not a Label.
+        // Keep its numeric child intact so ScoreManager continues updating it.
+        this.hidePicture(top + 'scoreName');
+        this.bind(top + 'scoreName', 'ChineseScoreCaption', '得分', 130, 80, 44);
+
         var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
         for (var i = 0; i < bestPaths.length; i++) {
             this.hidePicture(bestPaths[i]);

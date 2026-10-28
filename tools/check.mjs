@@ -41,6 +41,22 @@ try {
   const playerAfter = await page.evaluate(() => ({ x: cc.find('Player').x, y: cc.find('Player').y }));
   if (Math.abs(playerAfter.x-playerBefore.x) + Math.abs(playerAfter.y-playerBefore.y) < 1) errors.push('Player did not move after tutorial and touch');
   await page.screenshot({ path: path.join(root, 'artifacts/gameplay.png') });
+  const scoreCaption = await page.evaluate(() => {
+    const node = cc.find('CameraCon/Camera/deathboxUp/scoreName');
+    const caption = node.getChildByName('ChineseScoreCaption');
+    const value = node.getChildByName('Score');
+    const captionBounds = caption.getBoundingBoxToWorld();
+    const valueBounds = value.getBoundingBoxToWorld();
+    return {
+      oldPictureEnabled: node.getComponent(cc.Sprite).enabled,
+      text: caption.getComponent(cc.Label).string,
+      visible: caption.activeInHierarchy,
+      value: Number(value.getComponent(cc.Label).string),
+      score: cc.find('Map').getComponent('ScoreManager').PlayerScore,
+      separate: captionBounds.x + captionBounds.width <= valueBounds.x,
+    };
+  });
+  if (scoreCaption.oldPictureEnabled || scoreCaption.text !== '得分' || !scoreCaption.visible || scoreCaption.value !== scoreCaption.score || !scoreCaption.separate) errors.push('Gameplay score localization or numeric display failed: ' + JSON.stringify(scoreCaption));
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 2, { timeout: 25000 });
   await page.screenshot({ path: path.join(root, 'artifacts/gameover.png') });
   const mapBeforeRevive = await page.evaluate(() => cc.find('Map').__instanceId);
