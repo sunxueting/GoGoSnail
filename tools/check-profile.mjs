@@ -149,9 +149,10 @@ try {
   assert.equal((await snapshot()).name, '测试玩家');
   results.push({ name: 'Profile survives restart and records reopen', passed: true });
   await page.evaluate(() => localStorage.setItem('TopScore', '123'));
+  await page.evaluate(() => { window.__capturedPreDeleteButton = __profileMock.buttons.slice(-1)[0]; });
   await tapNode('CameraCon/Camera/UILayer/Leaderboard/PlayerProfilePanel/ProfileDelete');
   assert.equal((await snapshot()).stored, null, 'Touching the delete control removes saved identity');
-  await page.evaluate(() => __profileMock.buttons.slice(-1)[0].tap({ userInfo: { nickName: '迟到回调', avatarUrl: '' } }));
+  await page.evaluate(() => __capturedPreDeleteButton.tap({ userInfo: { nickName: '迟到回调', avatarUrl: '' } }));
   assert.equal((await snapshot()).stored, null, 'Stale callback must not restore deleted data');
   assert.equal(await page.evaluate(() => localStorage.getItem('TopScore')), '123');
   results.push({ name: 'Delete removes profile, preserves best, rejects stale authorization callback', passed: true });

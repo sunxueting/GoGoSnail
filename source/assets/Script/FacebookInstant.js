@@ -17,17 +17,17 @@ var FacebookInstant = cc.Class({
     },
     onShareGame: function () {
         if (typeof wx !== 'undefined' && wx.shareAppMessage) {
-            wx.shareAppMessage({ title: 'GoGoSnail：把握时机，跳向下一个圆！' });
+            wx.shareAppMessage({ title: require('ReleaseConfig').shareTitle });
         }
     },
     showLeaderboard: function () {
         var board = require('LeaderBoardManager')._instance;
         board.ClearLeaderboard();
         board.node.active = true;
-        board.ShowLeaderboard([{ LName: '本机最高纪录', LRank: 1, LScore: require('ScoreManager')._instance.GetTopScore(), LPhoto: '' }]);
+        var ready = board.ShowLeaderboard([{ LName: '本机最高纪录', LRank: 1, LScore: require('ScoreManager')._instance.GetTopScore(), LPhoto: '' }]);
         board.globalButton.node.active = false;
         board.friendButton.node.active = false;
-        board.showPlayerProfile();
+        if (ready) board.showPlayerProfile();
     },
     showGobalLeaderBoard: function () { this.showLeaderboard(); },
     showInterstitialAD: function () { cc.find('Map').getComponent('GameLogic').restartGame(); },

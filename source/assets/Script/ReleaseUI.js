@@ -18,6 +18,7 @@ var translations = {
 };
 
 module.exports = function () {
+    var release = require('ReleaseConfig');
     require('ScreenLayout')();
     var scene = cc.director.getScene();
     scene.getComponentsInChildren(cc.Label).forEach(function (label) {
@@ -27,7 +28,15 @@ module.exports = function () {
             label.fontFamily = 'Arial';
             label.string = replacement;
         }
-        if (label.node.name === 'version') label.string = 'v1.1.3';
+        if (label.node.name === 'version') {
+            label.useSystemFont = true;
+            label.fontFamily = 'Arial';
+            label.fontSize = 24;
+            label.lineHeight = 34;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            label.node.setContentSize(440, 95);
+            label.string = release.displayName + '\n版本 ' + release.version;
+        }
     });
     var score = cc.find('Map').getComponent('ScoreManager');
     score.Str_DoubleJump = '二连跳';
@@ -35,4 +44,5 @@ module.exports = function () {
     score.Str_QuadrupleJump = '四连跳';
     score.Str_SurperJump = '超级跳跃';
     score.Str_FullCircle = '绕圆完成';
+    require('ReleasePresentation')();
 };
