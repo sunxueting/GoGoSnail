@@ -96,7 +96,19 @@ var Presentation = cc.Class({
         // The gameplay SCORE caption is baked into a sprite, not a Label.
         // Keep its numeric child intact so ScoreManager continues updating it.
         this.hidePicture(top + 'scoreName');
-        this.bind(top + 'scoreName', 'ChineseScoreCaption', '得分', 130, 80, 44);
+        this.bind(top + 'scoreName', 'ChineseScoreCaption', '得分', 150, 80, 52);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(100, size.height - 110); };
+        var scoreValue = cc.find(top + 'scoreName/Score');
+        var scoreLabel = scoreValue.getComponent(cc.Label);
+        scoreLabel.fontSize = 52;
+        scoreLabel.lineHeight = 64;
+        scoreLabel.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+        scoreLabel.verticalAlign = cc.Label.VerticalAlign.CENTER;
+        scoreLabel.overflow = cc.Label.Overflow.SHRINK;
+        scoreValue.setAnchorPoint(0.5, 0.5);
+        scoreValue.setContentSize(200, 80);
+        this.bindings.push({ node: scoreValue, target: cc.find(top + 'scoreName'), x: 0, y: 0,
+            screen: function (size) { return cc.v2(285, size.height - 110); } });
 
         var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
         for (var i = 0; i < bestPaths.length; i++) {

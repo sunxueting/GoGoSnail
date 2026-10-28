@@ -54,9 +54,10 @@ try {
       value: Number(value.getComponent(cc.Label).string),
       score: cc.find('Map').getComponent('ScoreManager').PlayerScore,
       separate: captionBounds.x + captionBounds.width <= valueBounds.x,
+      aligned: Math.abs(captionBounds.y + captionBounds.height / 2 - valueBounds.y - valueBounds.height / 2) < 1,
     };
   });
-  if (scoreCaption.oldPictureEnabled || scoreCaption.text !== '得分' || !scoreCaption.visible || scoreCaption.value !== scoreCaption.score || !scoreCaption.separate) errors.push('Gameplay score localization or numeric display failed: ' + JSON.stringify(scoreCaption));
+  if (scoreCaption.oldPictureEnabled || scoreCaption.text !== '得分' || !scoreCaption.visible || scoreCaption.value !== scoreCaption.score || !scoreCaption.separate || !scoreCaption.aligned) errors.push('Gameplay score localization or numeric display failed: ' + JSON.stringify(scoreCaption));
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 2, { timeout: 25000 });
   await page.screenshot({ path: path.join(root, 'artifacts/gameover.png') });
   const mapBeforeRevive = await page.evaluate(() => cc.find('Map').__instanceId);
