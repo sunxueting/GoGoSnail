@@ -19,6 +19,7 @@ var translations = {
 
 module.exports = function () {
     var release = require('ReleaseConfig');
+    if (require('CloudRanking').enabled()) translations.LeaderBoard = '全服排行榜';
     require('ScreenLayout')();
     var scene = cc.director.getScene();
     scene.getComponentsInChildren(cc.Label).forEach(function (label) {

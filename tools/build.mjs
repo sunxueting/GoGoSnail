@@ -33,7 +33,7 @@ function walk(dir) {
   }
 }
 walk(path.join(root, 'source/assets'));
-const moduleDefinitions = ids.concat(['ReleaseUI', 'PlayerProfile', 'ScreenLayout', 'ReleaseConfig', 'ReleasePresentation'].map(name => [null, null, name]));
+const moduleDefinitions = ids.concat(['ReleaseUI', 'PlayerProfile', 'ScreenLayout', 'ReleaseConfig', 'ReleasePresentation', 'CloudRankingConfig', 'CloudRanking', 'GlobalRankingPanel'].map(name => [null, null, name]));
 const modules = moduleDefinitions.map(([, id, name]) => {
   if (!scriptPaths.has(name)) throw new Error(`Missing source: ${name}`);
   return `${JSON.stringify(name)}:function(require,module,exports){\n${id ? `cc._RF.push(module,${JSON.stringify(id)},${JSON.stringify(name)});` : ''}\n${read(scriptPaths.get(name))}\n${id ? 'cc._RF.pop();' : ''}\n}`;
@@ -107,6 +107,8 @@ for (const platform of ['web', 'wechat']) {
     await build({ entryPoints: [path.join(adapter, 'xmldom/dom-parser.js')], outfile: path.join(dir, 'libs/dom-parser.js'), bundle: true, format: 'cjs', minify: true });
     write(path.join(dir, 'libs/wx-downloader.js'), 'var cc=GameGlobal.cc;\n' + read(path.join(adapter, 'wx-downloader.js')));
     write(path.join(dir, 'assets/game.js'), '// Resource subpackage entry.\n');
+    fs.cpSync(path.join(root, 'cloudfunctions'), path.join(dir, 'cloudfunctions'), { recursive: true,
+      filter: source => !source.split(path.sep).includes('node_modules') });
     write(path.join(dir, 'game.js'), `function startGame(){
 require('./libs/weapp-adapter.js');
 window.DOMParser=require('./libs/dom-parser.js').DOMParser;
@@ -123,7 +125,7 @@ wx.loadSubpackage({name:'assets',success:function(){wx.hideLoading();startGame()
 loadAssets();
 `);
     write(path.join(dir, 'game.json'), JSON.stringify({ deviceOrientation: 'portrait', showStatusBar: false, subpackages: [{ name: 'assets', root: 'assets/' }] }, null, 2));
-    write(path.join(dir, 'project.config.json'), JSON.stringify({ appid: release.appId, projectname: release.displayName, compileType: 'game', setting: { es6: true, minified: true, urlCheck: true }, packOptions: { ignore: [] } }, null, 2));
+    write(path.join(dir, 'project.config.json'), JSON.stringify({ appid: release.appId, projectname: release.displayName, compileType: 'game', cloudfunctionRoot: 'cloudfunctions/', setting: { es6: true, minified: true, urlCheck: true }, packOptions: { ignore: [{type:'folder',value:'cloudfunctions'}] } }, null, 2));
     if (privateConfig) write(privateConfigPath, privateConfig);
     let mainBytes = 0, assetBytes = 0;
     function sizes(p) { for (const f of fs.readdirSync(p, {withFileTypes:true})) { const full = path.join(p, f.name); if (f.isDirectory()) sizes(full); else if (full.startsWith(path.join(dir, 'assets') + path.sep)) assetBytes += fs.statSync(full).size; else mainBytes += fs.statSync(full).size; } }

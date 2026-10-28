@@ -88,6 +88,7 @@ var GameLogic =cc.Class({
     },
     GamePlayStart:function()
     {
+        require('CloudRanking').beginRun();
         var playercon = GameLogic._instance.PlC;
     //    cc.log('this.PIC'+ playercon);
        // this.Cam.ResetMoveSpeed();

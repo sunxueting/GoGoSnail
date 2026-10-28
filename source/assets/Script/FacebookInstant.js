@@ -21,6 +21,14 @@ var FacebookInstant = cc.Class({
         }
     },
     showLeaderboard: function () {
+        if (require('CloudRanking').enabled()) {
+            var self = this;
+            require('GlobalRankingPanel')(require('LeaderBoardManager')._instance, function () { self.showLocalLeaderboard(); });
+            return;
+        }
+        this.showLocalLeaderboard();
+    },
+    showLocalLeaderboard: function () {
         var board = require('LeaderBoardManager')._instance;
         board.ClearLeaderboard();
         board.node.active = true;

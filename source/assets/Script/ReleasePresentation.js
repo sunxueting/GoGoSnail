@@ -73,6 +73,8 @@ var Presentation = cc.Class({
         return node;
     },
     mount: function () {
+        var ranking = require('CloudRanking');
+        var online = ranking.enabled();
         var top = 'CameraCon/Camera/deathboxUp/';
         var layer = 'CameraCon/Camera/UILayer/';
         var bottom = 'CameraCon/Camera/deathboxBottom/';
@@ -84,7 +86,7 @@ var Presentation = cc.Class({
         var outline = heading.addComponent(cc.LabelOutline);
         outline.color = cc.color(25, 53, 82);
         outline.width = 4;
-        this.tagline = this.bind(title, 'GameTagline', '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
+        this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height - 440); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
         this.startControl = cc.find(layer + 'startGame');
@@ -113,20 +115,24 @@ var Presentation = cc.Class({
         var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
         for (var i = 0; i < bestPaths.length; i++) {
             this.hidePicture(bestPaths[i]);
-            this.bind(bestPaths[i], 'ChineseBest', '最高纪录', 220, 80, 36);
+            this.bind(bestPaths[i], 'ChineseBest', online && i === 0 ? '全服最高' : '个人纪录', 220, 80, 36);
             if (i === 0) this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.43, size.height * 0.58); };
         }
         var mainScore = cc.find(layer + 'Top/score');
         mainScore.getComponent(cc.Label).enabled = false;
         var score = cc.find('Map').getComponent('ScoreManager');
-        this.bind(mainScore, 'ChineseBestValue', function () { return String(score.GetTopScore()); }, 160, 80, 48, 0, 0, cc.color(255, 110, 95));
+        this.bind(mainScore, 'ChineseBestValue', function () {
+            if (!online) return String(score.GetTopScore());
+            var snapshot = ranking.state();
+            return snapshot.status === 'ready' && snapshot.data && snapshot.data.highest !== null ? String(snapshot.data.highest) : '—';
+        }, 160, 80, 48, 0, 0, cc.color(255, 110, 95));
         this.bindings[this.bindings.length - 1].onEnterOnly = true;
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.64, size.height * 0.58); };
         var tutorial = cc.find(bottom + 'Tutotail/TutorialFont');
         if (tutorial) tutorial.active = false;
         this.bind(bottom + 'Setting', 'ChineseCaption', '设置', 200, 55, 34, 0, -110);
         this.bind(bottom + 'Tutotail', 'ChineseCaption', '玩法', 200, 55, 34, 0, -110);
-        this.bind(bottom + 'LeaderBoard', 'ChineseCaption', '本机纪录', 220, 55, 34, 0, -110);
+        this.bind(bottom + 'LeaderBoard', 'ChineseCaption', online ? '全服排名' : '本机纪录', 220, 55, 34, 0, -110);
         this.bind(layer + 'startGame', 'ChineseCaption', '开始游戏', 330, 65, 42, 0, -225);
 
         var again = this.hidePicture(layer + 'OverGame/AgainButton', true);
@@ -148,6 +154,10 @@ var Presentation = cc.Class({
         this.hidePicture(layer + 'OverGame/Top/newrecord');
         this.bind(layer + 'OverGame/Top/newrecord', 'ChineseNewRecord', '新纪录', 260, 90, 48, 0, 0, cc.color(255, 223, 125));
         this.bind(layer + 'OverGame/Top/Share', 'ChineseCaption', '分享', 190, 55, 32, 0, -105);
+        if (online) {
+            this.bind(layer + 'OverGame', 'GlobalScoreStatus', function () { return ranking.submission(); }, 900, 100, 32);
+            this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height * 0.12); };
+        }
 
         this.safety = new cc.Node('ChineseSafetyLinks');
         this.node.addChild(this.safety);
@@ -158,8 +168,13 @@ var Presentation = cc.Class({
         var self = this;
         age.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); self.showNotice('age'); });
         health.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); self.showNotice('health'); });
+        if (online) {
+            this._unsubscribeRanking = ranking.subscribe(function () { self._layoutWarmup = 3; });
+            ranking.refresh(0);
+        }
         this.lateUpdate();
     },
+    onDestroy: function () { if (this._unsubscribeRanking) this._unsubscribeRanking(); },
     showNotice: function (kind) {
         if (this.notice) return;
         var size = cc.view.getVisibleSize();
