@@ -6,6 +6,8 @@
 
 1.1.4 已于 2026-10-28 上传开发版，本地检查通过；微信真机复测及重新提审尚未完成。
 
+后续本地性能修复已加入当前分支：界面布局改为按需更新，不再每帧读取最高分或计算隐藏控件。已上传的 1.1.4 仍对应 6ea8a5c；此性能改动尚未重新上传。
+
 ## 工程结构
 
 | 路径 | 用途 |
@@ -47,6 +49,7 @@ npm test
 npm run test:profile
 npm run test:layout
 npm run test:release
+npm run test:performance
 ```
 
 检查仅启动独立浏览器访问本地游戏，不读取已登录的个人浏览器。macOS 存在常规安装的 Chrome 时优先使用该路径，也可用 `SNAIL_CHROME_PATH` 指定浏览器。其他环境默认使用 Playwright Chromium。
@@ -55,6 +58,7 @@ npm run test:release
 - `npm run test:profile`：使用模拟微信 API 和合成信息验证授权、拒绝、删除、撤销及隐私确认衔接。
 - `npm run test:layout`：四种尺寸的背景覆盖，以及复活目标和边界。
 - `npm run test:release`：正式名称、实际分享调用、四屏标题/按钮边界、适龄和健康提示的真实触摸及遮罩覆盖、冷启动纪录页恢复。
+- `npm run test:performance`：采样实际 Cocos 调用次数，防止静止首页逐帧布局或同步读取最高分。帧时间仅为本地参考，不等同于微信模拟器或手机帧率。
 
 GitHub Actions 在提交及拉取请求时执行以上构建和检查。网页或模拟 API 检查不等于微信真机或平台审核通过；微信上传和发布仍通过官方开发者工具与公众平台办理。
 

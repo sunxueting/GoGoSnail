@@ -40,6 +40,17 @@ try {
     checks.push({ name: 'Rendered artwork covers top and bottom after resize', width, height, passed: true });
   }
   await page.setViewportSize({ width: 390, height: 844 });
+  await page.evaluate(() => {
+    const bg = cc.find('Canvas/bg').getComponent(cc.Sprite);
+    window.__originalBackground = bg.spriteFrame;
+    window.__replacementBackground = new cc.SpriteFrame(bg.spriteFrame.getTexture());
+    bg.spriteFrame = __replacementBackground;
+  });
+  await page.waitForTimeout(80);
+  assert.equal(await page.evaluate(() => cc.find('Canvas/bg')._coverFrame === __replacementBackground), true, 'Background replacement invalidates cached coverage even at the same viewport size');
+  await page.evaluate(() => { cc.find('Canvas/bg').getComponent(cc.Sprite).spriteFrame = __originalBackground; });
+  await page.waitForTimeout(80);
+  checks.push({ name: 'Background layout cache responds to texture replacement', passed: true });
   for (const mode of ['empty-map', 'nearest-nested-circle']) {
     await page.reload();
     await page.waitForFunction(() => window.__snailSceneReady);

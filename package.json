@@ -12,6 +12,7 @@
     "test:profile": "node tools/check-profile.mjs",
     "test:layout": "node tools/check-layout-revive.mjs",
     "test:release": "node tools/check-release.mjs",
+    "test:performance": "node tools/check-performance.mjs",
     "engine:build": "node tools/engine.mjs"
   },
   "devDependencies": {

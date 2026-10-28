@@ -3,11 +3,15 @@ var ScreenLayout = cc.Class({
     extends: cc.Component,
     lateUpdate: function () {
         var size = cc.view.getVisibleSize();
-        var paths = ['Canvas/bg', 'Canvas/bg/pat', 'Canvas/UINode/MainMenu/MMBg'];
-        for (var i = 0; i < paths.length; i++) {
-            var node = cc.find(paths[i]);
-            if (!node) continue;
-            var sprite = node.getComponent(cc.Sprite);
+        if (!this._targets) {
+            this._targets = ['Canvas/bg', 'Canvas/bg/pat', 'Canvas/UINode/MainMenu/MMBg'].map(function (path) {
+                var node = cc.find(path);
+                return node && node.getComponent(cc.Sprite);
+            }).filter(function (sprite) { return !!sprite; });
+        }
+        for (var i = 0; i < this._targets.length; i++) {
+            var sprite = this._targets[i];
+            var node = sprite.node;
             if (!sprite || !sprite.spriteFrame) continue;
             var frame = sprite.spriteFrame;
             if (node._coverFrame === frame && node._coverWidth === size.width && node._coverHeight === size.height) continue;

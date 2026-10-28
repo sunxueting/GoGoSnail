@@ -88,6 +88,10 @@ var Presentation = cc.Class({
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height - 440); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
         this.startControl = cc.find(layer + 'startGame');
+        // A static menu button needs no per-frame inverse-scale text layout.
+        var startAnimation = this.startControl.getComponent(cc.Animation);
+        if (startAnimation) { startAnimation.stop(); startAnimation.enabled = false; }
+        this.startControl.setScale(0.9);
 
         var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
         for (var i = 0; i < bestPaths.length; i++) {
@@ -99,6 +103,7 @@ var Presentation = cc.Class({
         mainScore.getComponent(cc.Label).enabled = false;
         var score = cc.find('Map').getComponent('ScoreManager');
         this.bind(mainScore, 'ChineseBestValue', function () { return String(score.GetTopScore()); }, 160, 80, 48, 0, 0, cc.color(255, 110, 95));
+        this.bindings[this.bindings.length - 1].onEnterOnly = true;
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.64, size.height * 0.58); };
         var tutorial = cc.find(bottom + 'Tutotail/TutorialFont');
         if (tutorial) tutorial.active = false;
@@ -173,19 +178,38 @@ var Presentation = cc.Class({
     lateUpdate: function () {
         if (!this.bindings) return;
         var size = cc.view.getVisibleSize();
-        for (var control = 0; control < this.menuControls.length; control++) {
-            moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), 200));
+        var state = this.ui._CurrentState;
+        if (this._layoutWidth !== size.width || this._layoutHeight !== size.height || this._layoutState !== state) this._layoutWarmup = 3;
+        // The legacy camera positions its top/bottom anchors in start(). Let
+        // those transforms settle for two frames after a scene/state/size change.
+        var dirty = this._layoutWarmup > 0;
+        if (dirty) this._layoutWarmup--;
+        this.safety.active = state === 0;
+        this.heading.active = state === 0;
+        this.tagline.active = state === 0;
+        if (dirty && state === 0) {
+            for (var control = 0; control < this.menuControls.length; control++) {
+                moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), 200));
+            }
+            moveToScreen(this.startControl, cc.v2(size.width / 2, size.height * 0.43));
         }
-        moveToScreen(this.startControl, cc.v2(size.width / 2, size.height * 0.43));
         for (var i = 0; i < this.bindings.length; i++) {
             var binding = this.bindings[i];
             if (!cc.isValid(binding.node) || !cc.isValid(binding.target)) continue;
-            place(binding.node, binding.target, binding.x, binding.y, binding.screen ? binding.screen(size) : null);
-            if (typeof binding.value === 'function') binding.node.getComponent(cc.Label).string = binding.value();
+            var visible = binding.node.activeInHierarchy;
+            if (visible && (dirty || !binding.visible)) {
+                place(binding.node, binding.target, binding.x, binding.y, binding.screen ? binding.screen(size) : null);
+            }
+            if (visible && typeof binding.value === 'function' && (!binding.onEnterOnly || dirty || !binding.visible)) {
+                var value = binding.value();
+                var label = binding.node.getComponent(cc.Label);
+                if (label.string !== value) label.string = value;
+            }
+            binding.visible = visible;
         }
-        this.safety.active = this.ui._CurrentState === 0;
-        this.heading.active = this.ui._CurrentState === 0;
-        this.tagline.active = this.ui._CurrentState === 0;
+        this._layoutWidth = size.width;
+        this._layoutHeight = size.height;
+        this._layoutState = state;
     }
 });
 
