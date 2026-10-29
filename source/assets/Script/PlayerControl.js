@@ -136,6 +136,7 @@ var PlayerControl =cc.Class({
     },
     onTouchDown(event)
     {
+        if (this.uIManager.isPaused) return;
      //    var len = cc.pSub(this.node.getComponent(cc.RigidBody).linearVelocity,cc.Vec2.ZERO).mag();
     //    if(len <=0)
               this.tangentMove();
@@ -187,6 +188,7 @@ var PlayerControl =cc.Class({
 
     tangentMove:function()
     {
+        if (this.uIManager.isPaused) return;
         if (this.lsDead || !cc.isValid(this.currentCenter, true)) return;
 
         this.checkJumpBonus();

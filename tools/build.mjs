@@ -58,7 +58,7 @@ function walk(dir) {
   }
 }
 walk(path.join(root, 'source/assets'));
-const moduleDefinitions = ids.concat(['ReleaseUI', 'PlayerProfile', 'ScreenLayout', 'ReleaseConfig', 'ReleasePresentation', 'CloudRankingConfig', 'CloudRanking', 'GlobalRankingPanel', 'ReviveOffer'].map(name => [null, null, name]));
+const moduleDefinitions = ids.concat(['ReleaseUI', 'PlayerProfile', 'ScreenLayout', 'ReleaseConfig', 'ReleasePresentation', 'CloudRankingConfig', 'CloudRanking', 'GlobalRankingPanel', 'ReviveOffer', 'PauseControl'].map(name => [null, null, name]));
 const modules = moduleDefinitions.map(([, id, name]) => {
   if (!scriptPaths.has(name)) throw new Error(`Missing source: ${name}`);
   return `${JSON.stringify(name)}:function(require,module,exports){\n${id ? `cc._RF.push(module,${JSON.stringify(id)},${JSON.stringify(name)});` : ''}\n${read(scriptPaths.get(name))}\n${id ? 'cc._RF.pop();' : ''}\n}`;

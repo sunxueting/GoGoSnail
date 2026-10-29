@@ -1,7 +1,7 @@
 // Product identity shared by the runtime, build and release checks.
 module.exports = {
     displayName: '蜗牛向前冲软件',
-    version: '1.1.8',
+    version: '1.1.9',
     appId: 'wx60136090bb46174f',
     age: 8,
     contact: '583339047@qq.com',

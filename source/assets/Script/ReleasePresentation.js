@@ -53,6 +53,7 @@ var Presentation = cc.Class({
         this.bindings = [];
         this.ui = cc.find('Map').getComponent('UIManager');
         this.mount();
+        this.pauseControl = require('PauseControl')(this.node);
     },
     bind: function (path, name, value, width, height, size, x, y, color) {
         var target = typeof path === 'string' ? cc.find(path) : path;
