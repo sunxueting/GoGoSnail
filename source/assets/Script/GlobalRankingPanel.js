@@ -54,16 +54,34 @@ module.exports = function (board, openLocal) {
         alive = false; renderGeneration++;
         if (unsubscribe) unsubscribe();
         textures.forEach(function (texture) { texture.destroy(); }); textures = [];
+        panel.active = false;
         panel.destroy();
     }
     function close() { dispose(); cc.find('Map').getComponent('UIManager').SubBackMM(); }
-    var top = size.height / 2 - 160;
-    label(panel, 'Title', '全服排行榜', 0, top, width - 160, 80, 52);
-    label(panel, 'Close', '关闭', width / 2 - 65, top, 130, 80, 32, close);
+    // Native WeChat capsule touches never reach Cocos. Place the header below
+    // it and keep a second home action above the device's bottom safe area.
+    var unitsPerPixel = size.height / (cc.view.getFrameSize().height || size.height);
+    var safeBottom = 0, headerInset = 160, headerHeight = Math.max(100, 44 * unitsPerPixel);
+    try {
+        if (typeof wx !== 'undefined') {
+            var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+            if (info && info.windowHeight) unitsPerPixel = size.height / info.windowHeight;
+            headerHeight = Math.max(100, 44 * unitsPerPixel);
+            if (info && info.safeArea && info.windowHeight) safeBottom = Math.max(0, info.windowHeight - info.safeArea.bottom) * unitsPerPixel;
+            var capsule = wx.getMenuButtonBoundingClientRect && wx.getMenuButtonBoundingClientRect();
+            var safeTop = Math.max(info && info.safeArea && info.safeArea.top || 0, capsule && capsule.bottom || 0);
+            headerInset = Math.max(headerInset, (safeTop + 12) * unitsPerPixel + headerHeight / 2);
+        }
+    } catch (_) { /* Keep both return actions available on older runtimes. */ }
+    var top = size.height / 2 - headerInset;
+    var bottom = -size.height / 2 + safeBottom;
+    label(panel, 'Title', '全服排行榜', 0, top, width - 380, 80, 52);
+    label(panel, 'Close', '返回', -width / 2 + 95, top, 190, headerHeight, 36, close);
+    label(panel, 'Refresh', '刷新', width / 2 - 65, top, 130, headerHeight, 32, function () { ranking.refresh(0); });
     label(panel, 'Rules', '按每位玩家历史最高分排序 · 同分并列', 0, top - 85, width, 55, 30);
     var summary = label(panel, 'Summary', '正在连接排行榜…', 0, top - 150, width, 60, 32);
-    var mine = label(panel, 'Mine', '', 0, -size.height / 2 + 535, width, 80, 36);
-    var status = label(panel, 'Status', '', 0, -size.height / 2 + 450, width, 80, 32, function () { ranking.refresh(current ? current.offset : 0); });
+    var mine = label(panel, 'Mine', '', 0, bottom + 535, width, 80, 36);
+    var status = label(panel, 'Status', '', 0, bottom + 450, width, 80, 32, function () { ranking.refresh(current ? current.offset : 0); });
     function operation(action) {
         if (busy) return;
         busy = true; status.string = '正在处理…';
@@ -71,33 +89,33 @@ module.exports = function (board, openLocal) {
             if (alive) status.string = /PROFILE_NOT_APPROVED/.test(error.message) ? '检查未完成或未通过，本次资料未公开' : /PERMISSION/.test(error.message) ? '请先在“本机资料”重新确认隐私及头像昵称授权' : '操作未完成，请稍后重试；可继续游戏';
         }).then(function () { busy = false; });
     }
-    var join = label(panel, 'Join', '参加全服排名', -width * 0.25, -size.height / 2 + 350, width * 0.48, 85, 36, function () {
+    var join = label(panel, 'Join', '参加全服排名', -width * 0.25, bottom + 350, width * 0.48, 85, 36, function () {
         if (current && current.joined) return;
         confirm('参加全服排行榜', '同意后，将保存微信账号标识及今后联网对局的最高分，并以玩家代号向所有玩家展示成绩和排名。头像昵称需另行同意公开。你可随时退出并删除云端数据；不参加也能正常游戏。', function () { operation(ranking.join); });
     });
-    var publish = label(panel, 'Publish', '公开头像昵称', width * 0.25, -size.height / 2 + 350, width * 0.48, 85, 36, function () {
+    var publish = label(panel, 'Publish', '公开头像昵称', width * 0.25, bottom + 350, width * 0.48, 85, 36, function () {
         if (!current || !current.joined) { status.string = '请先同意参加全服排名'; return; }
         var profile = require('PlayerProfile').read();
         if (!profile) { status.string = '请先在“本机资料”里设置头像昵称'; return; }
         confirm('公开头像昵称', '将把已授权的微信头像、昵称上传至本游戏云开发环境，经检查通过后在全服榜向所有玩家展示。你可随时撤下；原本仅保存在本机的资料不会自动公开。', function () { operation(function () { return ranking.publishProfile(profile); }); });
     });
-    label(panel, 'LocalProfile', '本机资料', -width * 0.32, -size.height / 2 + 240, width * 0.3, 85, 34, function () { dispose(); openLocal(); });
-    label(panel, 'ClearProfile', '撤下头像昵称', 0, -size.height / 2 + 240, width * 0.34, 85, 34, function () {
+    label(panel, 'LocalProfile', '本机资料', -width * 0.32, bottom + 240, width * 0.3, 85, 34, function () { dispose(); openLocal(); });
+    label(panel, 'ClearProfile', '撤下头像昵称', 0, bottom + 240, width * 0.34, 85, 34, function () {
         if (!current || !current.profilePublished) return;
         confirm('撤下头像昵称', '删除云端头像昵称，排名改为玩家代号。本机资料与成绩保留。', function () { operation(ranking.clearProfile); });
     });
-    label(panel, 'Leave', '退出并删除', width * 0.33, -size.height / 2 + 240, width * 0.31, 85, 34, function () {
+    label(panel, 'Leave', '退出并删除', width * 0.33, bottom + 240, width * 0.31, 85, 34, function () {
         if (!current || !current.joined) return;
         confirm('退出排行榜', '删除你的云端成绩、头像昵称和参与记录。本机纪录保留，之后可重新参加。', function () { operation(ranking.leave); });
     });
-    label(panel, 'Previous', '上一页', -width * 0.3, -size.height / 2 + 130, width * 0.3, 75, 36, function () {
+    label(panel, 'Previous', '上一页', -width * 0.3, bottom + 130, width * 0.3, 75, 36, function () {
         if (current && current.offset > 0) ranking.refresh(current.offset - 20);
     });
-    label(panel, 'Refresh', '刷新', 0, -size.height / 2 + 130, width * 0.3, 75, 36, function () { ranking.refresh(0); });
-    label(panel, 'Next', '下一页', width * 0.3, -size.height / 2 + 130, width * 0.3, 75, 36, function () {
+    label(panel, 'ReturnHome', '返回首页', 0, bottom + 130, width * 0.36, 90, 36, close);
+    label(panel, 'Next', '下一页', width * 0.3, bottom + 130, width * 0.3, 75, 36, function () {
         if (current && current.hasMore) ranking.refresh(current.offset + 20);
     });
-    label(panel, 'Privacy', '隐私指引', 0, -size.height / 2 + 50, width * 0.5, 60, 32, function () {
+    label(panel, 'Privacy', '隐私指引', 0, bottom + 50, width * 0.5, 60, 32, function () {
         if (typeof wx !== 'undefined' && wx.openPrivacyContract) wx.openPrivacyContract({ fail: function () { status.string = '隐私联系：583339047@qq.com'; } });
     });
     function render(state) {
@@ -116,7 +134,7 @@ module.exports = function (board, openLocal) {
         join.string = current.joined ? '已参加全服排名' : '参加全服排名';
         publish.string = current.profilePublished ? '更新公开资料' : '公开头像昵称';
         var rowTop = top - 235;
-        var available = rowTop - (-size.height / 2 + 620);
+        var available = rowTop - (bottom + 620);
         // A scroll view contains all 20 entries even on shorter screens.
         var viewport = new cc.Node('RankingScroll'); pageRows.addChild(viewport);
         viewport.setPosition(0, rowTop - Math.max(90, available) / 2);

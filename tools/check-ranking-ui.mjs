@@ -56,7 +56,8 @@ try {
       showModal(options) { __rankingTest.modals.push(options); },
       getPrivacySetting(options) { options.success({ needAuthorization: !__rankingTest.permission }); },
       getSetting(options) { options.success({ authSetting: { 'scope.userInfo': __rankingTest.permission } }); },
-      getWindowInfo() { return { windowWidth: innerWidth, windowHeight: innerHeight }; },
+      getWindowInfo() { return { windowWidth: innerWidth, windowHeight: innerHeight, safeArea: { top: 47, bottom: innerHeight - 34 } }; },
+      getMenuButtonBoundingClientRect() { return { left: innerWidth - 103, right: innerWidth - 7, top: 50, bottom: 82, width: 96, height: 32 }; },
       createUserInfoButton(options) { const button = { style: options.style, destroy() {}, hide() {}, show() {}, onTap(fn) { this.tap = fn; } }; __rankingTest.infoButtons.push(button); return button; },
       onNeedPrivacyAuthorization() {}, openPrivacyContract() {}, showToast() {},
       createImage() {
@@ -67,6 +68,12 @@ try {
     };
   });
   await page.goto(`http://127.0.0.1:${server.address().port}`);
+  // Model WeChat's native capsule: touches in this rectangle never reach Cocos.
+  await page.evaluate(() => {
+    const capsule = document.createElement('div'); capsule.id = 'wechat-native-capsule';
+    capsule.style.cssText = 'position:fixed;right:7px;top:50px;width:96px;height:32px;z-index:2147483647;border-radius:16px;background:#182532;color:white;text-align:center;line-height:32px';
+    capsule.textContent = '•••　◉'; document.body.appendChild(capsule);
+  });
   await page.waitForFunction(() => window.__snailSceneReady && cc.find('CameraCon/Camera/UILayer/Top/score/ChineseBestValue').getComponent(cc.Label).string === '124');
   assert.equal(store.players.size, 25, 'Startup does not silently enroll current player');
   await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
@@ -79,11 +86,15 @@ try {
       if (cc.Camera.main && cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
       const viewport = cc.view.getViewPortRect(), frame = cc.view.getFrameSize(), dpr = cc.view.getDevicePixelRatio();
       return { x: (viewport.x + (rect.x + rect.width / 2) * cc.view.getScaleX()) / (frame.width * dpr) * innerWidth, y: innerHeight - (viewport.y + (rect.y + rect.height / 2) * cc.view.getScaleY()) / (frame.height * dpr) * innerHeight };
-    }, panel + name);
+    }, name.includes('/') ? name : panel + name);
     const viewport = page.viewportSize();
     assert.ok(point.x >= 0 && point.y >= 0 && point.x <= viewport.width && point.y <= viewport.height, name + ' stays in viewport: ' + JSON.stringify(point));
     await page.touchscreen.tap(point.x, point.y);
   };
+  await tap('Close');
+  await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 0 && !cc.find('CameraCon/Camera/GlobalRankingPanel'), null, { timeout: 1500 });
+  await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
+  await page.waitForFunction(p => cc.find(p).getComponent(cc.Label).string.includes('25'), panel + 'Summary');
   await tap('Join');
   await page.waitForFunction(() => __rankingTest.modals.length === 1);
   await page.evaluate(() => __rankingTest.modals.pop().success({ confirm: false }));
@@ -134,8 +145,8 @@ try {
   assert.equal(await page.evaluate(() => __rankingTest.calls.filter(c => c.action === 'publishProfile').length), publications, 'Revoked permission blocks sending profile');
   await page.evaluate(() => { __rankingTest.permission = true; });
   await page.screenshot({ path: path.join(root, 'artifacts/global-ranking-profile-local.png') });
+  await tap('Close');
   for (const [width, height] of [[390, 844], [430, 932], [375, 667], [768, 1024]]) {
-    await tap('Close');
     await page.setViewportSize({ width, height });
     await page.waitForTimeout(250);
     await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
@@ -143,7 +154,7 @@ try {
     await page.waitForTimeout(150);
     const bounds = await page.evaluate(p => {
       const size = cc.view.getVisibleSize();
-      return ['Join', 'Publish', 'LocalProfile', 'Leave', 'Next', 'Close'].map(name => {
+      return ['Join', 'Publish', 'LocalProfile', 'Leave', 'Next', 'Close', 'ReturnHome', 'Refresh'].map(name => {
         const node = cc.find(p + name); let rect = node.getBoundingBoxToWorld();
         if (cc.Camera.main && cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
         return { name, inside: rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= size.width && rect.y + rect.height <= size.height };
@@ -155,7 +166,14 @@ try {
       const pixel = (png.width * y + x) * 4;
       assert.ok(png.data[pixel] + png.data[pixel + 1] + png.data[pixel + 2] < 100, 'Ranking backdrop covers every corner');
     }
+    await tap('ReturnHome');
+    await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 0 && !cc.find('CameraCon/Camera/GlobalRankingPanel'));
+    assert.ok(await page.evaluate(() => cc.find('CameraCon/Camera/UILayer/startGame').activeInHierarchy), 'Returning restores the main menu start button');
   }
+  await tap('CameraCon/Camera/UILayer/startGame');
+  await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 1);
+  await page.evaluate(() => cc.director.loadScene('level1'));
+  await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 0);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(250);
   await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
@@ -181,5 +199,5 @@ try {
   assert.equal(await page.evaluate(() => Number(localStorage.getItem('TopScore'))), 210, 'Cloud deletion preserves local best');
   await tap('Close');
   assert.deepEqual(errors, []);
-  console.log(JSON.stringify({ passed: true, environment: 'Actual Cocos UI, mocked wx transport + production service with memory transactions; not cloud/phone certification', checks: ['startup read only', 'highest from all users', 'join decline/agree', 'run upload and personal rank', 'pagination', 'local profile never auto-published', 'separate public consent', 'revoked permission blocks upload', 'cloud profile withdrawal', 'cloud deletion preserves local best', 'four viewport layouts', 'offline clears stale rows', 'close remains usable'], errors }, null, 2));
+  console.log(JSON.stringify({ passed: true, environment: 'Actual Cocos UI, mocked wx transport + production service with memory transactions; not cloud/phone certification', checks: ['startup read only', 'highest from all users', 'join decline/agree', 'run upload and personal rank', 'pagination', 'local profile never auto-published', 'separate public consent', 'revoked permission blocks upload', 'cloud profile withdrawal', 'cloud deletion preserves local best', 'four viewport layouts', 'offline clears stale rows', 'native capsule does not cover return controls', 'footer return restores usable menu in four viewports', 'game starts after return', 'close remains usable'], errors }, null, 2));
 } finally { await browser.close(); await new Promise(resolve => server.close(resolve)); }
