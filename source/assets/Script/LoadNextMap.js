@@ -1,61 +1,38 @@
-// Learn cc.Class:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/class.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/class.html
-// Learn Attribute:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/reference/attributes.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/reference/attributes.html
-// Learn life-cycle callbacks:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/life-cycle-callbacks.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/life-cycle-callbacks.html
-var UtilManager = require("UtilManager");
-var MapDataManager = require("MapDataManager")
 cc.Class({
     extends: cc.Component,
-
-    properties: {
-
-    },
-    // LIFE-CYCLE CALLBACKS:
-
-    // onLoad () {},
-
-    start () {
-
-    },
-
-
-    onCollisionEnter: function (other, self) {
-
-        
-      //  console.log("next map "+self.node.name+" "+ other.node.group);
-         MapDataManager._instance.CheckMapConfig();
-        
-
-        var mapArray = UtilManager._instance.mapArray;
-
-        var mapLength = mapArray.length;
-
-
-        var _index = UtilManager._instance.getRandomInt(0,mapLength-1);
-
-      //      cc.log('Result should be a prefab: ' + (nodex instanceof cc.Prefab));
-            var curnode = cc.instantiate(mapArray[_index]);
-             var children = curnode.children;
-             curnode.parent =  cc.find("Map");
-             
-            for (var i = 0; i < children.length; ++i) {
-         //     cc.log("Node: " + children[i].name);
-              
-               var ctp1 =  cc.pAdd(children[i].position,self.node.position);
-            
-               children[i].setPosition(ctp1);
-        //       cc.log("ctp1111111111"+children[i].parent.name);
-            
-            }
-            this.node.active = false;
-
+    tryLoad: function (depth) {
+        var ui = require('UIManager')._instance;
+        var util = require('UtilManager')._instance;
+        if (this._consumed || !ui || ui._CurrentState !== 1 || !util.GetMapFinished()) return false;
+        var data = require('MapDataManager')._instance;
+        if (!data.CheckMapConfig()) return false;
+        var prefabs = util.mapArray;
+        var map = cc.find('Map');
+        var anchor = map.convertToNodeSpaceAR(this.node.convertToWorldSpaceAR(cc.Vec2.ZERO));
+        this._consumed = true;
+        var next = cc.instantiate(prefabs[util.getRandomInt(0, prefabs.length - 1)]);
+        next.setPosition(anchor);
+        next.parent = map;
+        this.node.active = false;
         this.node.destroy();
-
-    }
-    // update (dt) {},
+        // Catch up in the same frame after a fast camera jump, with a bounded
+        // batch so recovering a skipped seam cannot monopolize the UI thread.
+        if ((depth || 0) < 7) next.getComponentsInChildren('LoadNextMap').forEach(function (trigger) {
+            if (trigger.nearCamera()) trigger.tryLoad((depth || 0) + 1);
+        });
+        return true;
+    },
+    onCollisionEnter: function () { this.tryLoad(); },
+    nearCamera: function () {
+        var ui = require('UIManager')._instance;
+        if (this._consumed || !this.node.activeInHierarchy || !ui || ui._CurrentState !== 1 || !ui.FMap.activeInHierarchy) return false;
+        var collider = this.node.getComponent(cc.BoxCollider);
+        if (!collider || !collider.enabled) return false;
+        var camera = cc.find('CameraCon/Camera');
+        var top = camera.convertToWorldSpaceAR(cc.v2(0, cc.view.getVisibleSize().height / 2)).y;
+        var boundary = this.node.convertToWorldSpaceAR(cc.Vec2.ZERO).y;
+        // Position-based prefetch also catches triggers skipped by a long frame.
+        return boundary <= top + cc.view.getVisibleSize().height * 0.35;
+    },
+    update: function () { if (this.nearCamera()) this.tryLoad(); }
 });

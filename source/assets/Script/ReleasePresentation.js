@@ -79,6 +79,13 @@ var Presentation = cc.Class({
         var top = 'CameraCon/Camera/deathboxUp/';
         var layer = 'CameraCon/Camera/UILayer/';
         var bottom = 'CameraCon/Camera/deathboxBottom/';
+        var resources = cc.find('MapDataManager').getComponent('UtilManager');
+        this.resourceStatus = this.bind(this.node, 'ResourceStatus', function () {
+            return resources.loadError ? '关卡资源准备失败\n点此重试' : '正在准备关卡资源，请稍候…';
+        }, 850, 150, 38);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height * 0.35); };
+        this.resourceStatus.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
+        this.resourceStatus.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); if (resources.loadError) resources.retryResources(); });
         var title = this.hidePicture(top + 'MMlogo');
         var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 880, 125, 82, 0, 40);
         this.heading = heading;
@@ -310,6 +317,7 @@ var Presentation = cc.Class({
         this.heading.active = state === 0;
         this.tagline.active = state === 0;
         if (this.gameOverStatus) this.gameOverStatus.active = state === 2;
+        this.resourceStatus.active = this.ui.WaitBar.activeInHierarchy;
         if (dirty && state === 0) {
             for (var control = 0; control < this.menuControls.length; control++) {
                 moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), 200));

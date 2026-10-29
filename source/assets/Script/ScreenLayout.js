@@ -35,13 +35,20 @@ var ScreenLayout = cc.Class({
             var origin = parent.convertToWorldSpaceAR(cc.Vec2.ZERO);
             var sx = cc.pDistance(origin, parent.convertToWorldSpaceAR(cc.v2(1, 0)));
             var sy = cc.pDistance(origin, parent.convertToWorldSpaceAR(cc.v2(0, 1)));
-            var shade = overlay.getComponent(cc.Sprite);
-            var art = shade.spriteFrame.getOriginalSize();
-            var cover = Math.max(size.width / art.width, size.height / art.height);
-            shade.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+            // Draw coverage directly; a trimmed/transparent legacy image or
+            // different native sprite renderer must not define the mask edge.
+            overlay.getComponent(cc.Sprite).enabled = false;
             overlay.setAnchorPoint(0.5, 0.5);
             overlay.setScale(1 / sx, 1 / sy);
-            overlay.setContentSize(art.width * cover, art.height * cover);
+            overlay.setContentSize(size.width, size.height);
+            overlay.opacity = 255;
+            var paint = overlay.getChildByName('FullScreenShade');
+            if (!paint) { paint = new cc.Node('FullScreenShade'); overlay.addChild(paint); paint.addComponent(cc.Graphics); }
+            var graphics = paint.getComponent(cc.Graphics);
+            graphics.clear();
+            graphics.fillColor = cc.color(5, 12, 22, 185);
+            graphics.rect(-size.width / 2 - 2, -size.height / 2 - 2, size.width + 4, size.height + 4);
+            graphics.fill();
             var center = cc.v2(size.width / 2, size.height / 2);
             if (cc.Camera.main && cc.Camera.main.containsNode(overlay)) center = cc.pointApplyAffineTransform(center, cc.affineTransformInvert(cc.Camera.main.viewMatrix));
             overlay.setPosition(parent.convertToNodeSpaceAR(center));

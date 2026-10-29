@@ -122,7 +122,9 @@ for (const platform of ['web', 'wechat']) {
       plugins: [{ name: 'legacy-babel-syntax', setup(b) {
         b.onLoad({ filter: /weapp-adapter\/.*\.js$/ }, args => {
           let contents = read(args.path);
+          if (path.basename(args.path) === 'WindowProperties.js') contents = read(path.join(root, 'tools/wechat-window-properties.js'));
           if (path.basename(args.path) === 'index.js') contents = contents.replace("import * as _window from './window'", "import * as windowExports from './window'; const _window = Object.assign({}, windowExports)");
+          if (path.basename(args.path) === 'index.js') contents = contents.replace('value: _window[key]', 'value: _window[key], configurable: true, writable: true');
           contents = contents.replace(/^export (\w+) from ('[^']+')/gm, 'export { default as $1 } from $2');
           if (path.basename(args.path) === 'window.js') contents = contents.replace(/^export \{ (setTimeout|setInterval|clearTimeout|clearInterval|requestAnimationFrame|cancelAnimationFrame) \}/gm, 'const adapter_$1 = $1; export { adapter_$1 as $1 }');
           return { contents, loader: 'js' };
