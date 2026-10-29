@@ -9,6 +9,31 @@ const out = path.join(root, 'build');
 const read = p => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 const write = (p, content) => { fs.mkdirSync(path.dirname(p), { recursive: true }); fs.writeFileSync(p, content); };
 const copy = (a, b) => fs.cpSync(a, b, { recursive: true });
+// IDE/compiler workers may have their cwd inside this tree. Build separately,
+// publish complete files, and retain directories so a rebuild cannot orphan cwd.
+function publishBuild(prepared, destination) {
+  fs.mkdirSync(destination, { recursive: true });
+  for (const entry of fs.readdirSync(prepared, { withFileTypes: true })) {
+    const from = path.join(prepared, entry.name), to = path.join(destination, entry.name);
+    if (entry.isDirectory()) publishBuild(from, to);
+    else {
+      const contents = fs.readFileSync(from);
+      if (fs.existsSync(to) && fs.readFileSync(to).equals(contents)) continue;
+      const temporary = to + '.snail-build-tmp';
+      fs.writeFileSync(temporary, contents);
+      fs.renameSync(temporary, to);
+    }
+  }
+  // Remove obsolete generated files, while keeping even empty directories alive.
+  function prune(folder, expected) {
+    for (const entry of fs.readdirSync(folder, { withFileTypes: true })) {
+      const file = path.join(folder, entry.name), source = path.join(expected, entry.name);
+      if (entry.isDirectory()) prune(file, source);
+      else if (!fs.existsSync(source)) fs.rmSync(file);
+    }
+  }
+  prune(destination, prepared);
+}
 const releaseModule = { exports: {} };
 vm.runInNewContext(read(path.join(root, 'source/assets/Script/ReleaseConfig.js')), { module: releaseModule });
 const release = releaseModule.exports;
@@ -50,10 +75,10 @@ settings.platform = 'web-mobile';
 const main = read(path.join(root, 'tools/runtime.js'));
 
 for (const platform of ['web', 'wechat']) {
-  const dir = path.join(out, platform);
-  const privateConfigPath = path.join(dir, 'project.private.config.json');
-  const privateConfig = fs.existsSync(privateConfigPath) ? read(privateConfigPath) : null;
-  fs.rmSync(dir, { recursive: true, force: true });
+  const destination = path.join(out, platform);
+  const savedPrivateConfigPath = path.join(destination, 'project.private.config.json');
+  const privateConfig = fs.existsSync(savedPrivateConfigPath) ? read(savedPrivateConfigPath) : null;
+  const dir = fs.mkdtempSync(path.join(out, '.' + platform + '-stage-'));
   copy(path.join(legacy, 'res'), path.join(dir, platform === 'wechat' ? 'assets/res' : 'res'));
   {
     // Use the same system fonts in both builds. The WeChat runtime cannot rely
@@ -126,12 +151,14 @@ loadAssets();
 `);
     write(path.join(dir, 'game.json'), JSON.stringify({ deviceOrientation: 'portrait', showStatusBar: false, subpackages: [{ name: 'assets', root: 'assets/' }] }, null, 2));
     write(path.join(dir, 'project.config.json'), JSON.stringify({ appid: release.appId, projectname: release.displayName, compileType: 'game', cloudfunctionRoot: 'cloudfunctions/', setting: { es6: true, minified: true, urlCheck: true }, packOptions: { ignore: [{type:'folder',value:'cloudfunctions'}] } }, null, 2));
-    if (privateConfig) write(privateConfigPath, privateConfig);
+    if (privateConfig) write(path.join(dir, 'project.private.config.json'), privateConfig);
     let mainBytes = 0, assetBytes = 0;
     function sizes(p) { for (const f of fs.readdirSync(p, {withFileTypes:true})) { const full = path.join(p, f.name); if (f.isDirectory()) sizes(full); else if (full.startsWith(path.join(dir, 'assets') + path.sep)) assetBytes += fs.statSync(full).size; else mainBytes += fs.statSync(full).size; } }
     sizes(dir);
     if (mainBytes > 4 * 1024 * 1024) throw new Error('Main package exceeds 4 MiB');
     write(path.join(root, 'artifacts/package-size.json'), JSON.stringify({ mainBytes, assetBytes, totalBytes: mainBytes + assetBytes, method: 'Uncompressed files; developer tool upload size still requires verification' }, null, 2));
   }
+  publishBuild(dir, destination);
+  fs.rmSync(dir, { recursive: true, force: true });
 }
 console.log('Created local web validation and WeChat candidate builds. WeChat compatibility is not yet certified.');

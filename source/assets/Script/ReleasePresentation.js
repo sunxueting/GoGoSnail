@@ -73,6 +73,7 @@ var Presentation = cc.Class({
         return node;
     },
     mount: function () {
+        var presentation = this;
         var ranking = require('CloudRanking');
         var online = ranking.enabled();
         var top = 'CameraCon/Camera/deathboxUp/';
@@ -112,15 +113,16 @@ var Presentation = cc.Class({
         this.bindings.push({ node: scoreValue, target: cc.find(top + 'scoreName'), x: 0, y: 0,
             screen: function (size) { return cc.v2(285, size.height - 110); } });
 
+        var score = cc.find('Map').getComponent('ScoreManager');
         var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
         for (var i = 0; i < bestPaths.length; i++) {
             this.hidePicture(bestPaths[i]);
-            this.bind(bestPaths[i], 'ChineseBest', online && i === 0 ? '全服最高' : '个人纪录', 220, 80, 36);
+            this.bind(bestPaths[i], 'ChineseBest', i === 1 ? function () { return score._lsNewRecord ? '个人新纪录' : '个人纪录'; } : online ? '全服最高' : '个人纪录', 220, 80, 36);
             if (i === 0) this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.43, size.height * 0.58); };
+            else this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.bestCaption; };
         }
         var mainScore = cc.find(layer + 'Top/score');
         mainScore.getComponent(cc.Label).enabled = false;
-        var score = cc.find('Map').getComponent('ScoreManager');
         this.bind(mainScore, 'ChineseBestValue', function () {
             if (!online) return String(score.GetTopScore());
             var snapshot = ranking.state();
@@ -136,13 +138,13 @@ var Presentation = cc.Class({
         this.bind(layer + 'startGame', 'ChineseCaption', '开始游戏', 330, 65, 42, 0, -225);
 
         var again = this.hidePicture(layer + 'OverGame/AgainButton', true);
-        again.setScale(2);
+        this.again = again;
         var background = new cc.Node('ChineseContinueBackground');
         again.addChild(background);
         background.zIndex = -1;
         var graphics = background.addComponent(cc.Graphics);
         graphics.fillColor = cc.color(25, 125, 85);
-        graphics.roundRect(-140, -80, 280, 160, 24);
+        graphics.roundRect(-170, -90, 340, 180, 24);
         graphics.fill();
         this.bindings.push({ node: background, target: again, x: 0, y: 0 });
         // Draw the video icon locally: emoji rendering differs between devices.
@@ -177,11 +179,10 @@ var Presentation = cc.Class({
         this.hidePicture(layer + 'OverGame/TapToRestart', true);
         this.bind(layer + 'OverGame/TapToRestart', 'ChineseRestart', '点击空白处重新开始', 570, 100, 38);
         this.hidePicture(layer + 'OverGame/Top/newrecord');
-        this.bind(layer + 'OverGame/Top/newrecord', 'ChineseNewRecord', '新纪录', 260, 90, 48, 0, 0, cc.color(255, 223, 125));
-        this.bind(layer + 'OverGame/Top/Share', 'ChineseCaption', '分享', 190, 55, 32, 0, -105);
+        this.bind(layer + 'OverGame/Top/Share', 'ChineseCaption', '分享', 190, 55, 32, 0, -95);
         if (online) {
-            this.bind(layer + 'OverGame', 'GlobalScoreStatus', function () { return ranking.submission(); }, 900, 100, 32);
-            this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height * 0.12); };
+            this.gameOverStatus = this.bind(layer + 'OverGame', 'GlobalScoreStatus', function () { return ranking.submission(); }, 900, 60, 30);
+            this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.status; };
         }
 
         this.safety = new cc.Node('ChineseSafetyLinks');
@@ -200,6 +201,63 @@ var Presentation = cc.Class({
         this.lateUpdate();
     },
     onDestroy: function () { if (this._unsubscribeRanking) this._unsubscribeRanking(); },
+    layoutGameOver: function (size) {
+        var pixel = size.height / (cc.view.getFrameSize().height || size.height);
+        var top = 0, bottom = 0;
+        try {
+            if (typeof wx !== 'undefined') {
+                var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+                if (info && info.windowHeight) pixel = size.height / info.windowHeight;
+                if (info && info.safeArea) {
+                    top = Math.max(0, info.safeArea.top || 0) * pixel;
+                    if (info.windowHeight && typeof info.safeArea.bottom === 'number') bottom = Math.max(0, info.windowHeight - info.safeArea.bottom) * pixel;
+                }
+                var capsule = wx.getMenuButtonBoundingClientRect && wx.getMenuButtonBoundingClientRect();
+                if (capsule && typeof capsule.bottom === 'number') top = Math.max(top, capsule.bottom * pixel);
+            }
+        } catch (_) { /* Use viewport-based margins when native metrics are absent. */ }
+        var low = bottom + Math.max(60, 16 * pixel);
+        var high = size.height - Math.max(220, top + 30 * pixel);
+        var span = high - low;
+        var center = size.width / 2;
+        var bestY = low + span * 0.65;
+        this.overGameLayout = {
+            bestCaption: cc.v2(center - 145, bestY),
+            status: cc.v2(center, low)
+        };
+        function position(path, point, width, height) {
+            var node = cc.find(path);
+            var widget = node.getComponent(cc.Widget);
+            if (widget) widget.enabled = false;
+            var button = node.getComponent(cc.Button);
+            if (button) button.transition = cc.Button.Transition.NONE;
+            node.setAnchorPoint(0.5, 0.5);
+            node.setContentSize(width, height);
+            place(node, node.parent, 0, 0, point);
+            return node;
+        }
+        function scoreLabel(path, point, width, height, fontSize) {
+            var node = position(path, point, width, height);
+            var label = node.getComponent(cc.Label);
+            label.useSystemFont = true;
+            label.fontFamily = 'Arial';
+            label.fontSize = fontSize;
+            label.lineHeight = fontSize + 12;
+            label.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+            label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            node.setContentSize(width, height);
+        }
+        var gameOver = 'CameraCon/Camera/UILayer/OverGame/';
+        scoreLabel(gameOver + 'Top/Score', cc.v2(center, low + span * 0.90), 500, 100, 80);
+        scoreLabel(gameOver + 'CurrentScore', cc.v2(center, low + span * 0.77), size.width - 100, 110, 84);
+        scoreLabel(gameOver + 'Top/score', cc.v2(center + 130, bestY), 260, 80, 48);
+        position(gameOver + 'AgainButton', cc.v2(center, low + span * 0.48), 340, 180);
+        position(gameOver + 'TapToRestart', cc.v2(center, low + span * 0.32), 650, 100);
+        position(gameOver + 'Top/Share', cc.v2(center, low + span * 0.17), Math.max(130, 44 * pixel), Math.max(130, 44 * pixel));
+        var backSize = Math.max(100, 44 * pixel);
+        position('CameraCon/Camera/deathboxUp/BackMM', cc.v2(Math.max(backSize / 2 + 24, 35 * pixel), size.height - Math.max(65 * pixel, top + 30 * pixel)), backSize, backSize);
+    },
     showReviveNotice: function () {
         // Non-modal: grant immediately without waiting for network or a dialog.
         this.reviveNotice.active = true;
@@ -247,9 +305,11 @@ var Presentation = cc.Class({
         // those transforms settle for two frames after a scene/state/size change.
         var dirty = this._layoutWarmup > 0;
         if (dirty) this._layoutWarmup--;
+        if (dirty) this.layoutGameOver(size);
         this.safety.active = state === 0;
         this.heading.active = state === 0;
         this.tagline.active = state === 0;
+        if (this.gameOverStatus) this.gameOverStatus.active = state === 2;
         if (dirty && state === 0) {
             for (var control = 0; control < this.menuControls.length; control++) {
                 moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), 200));

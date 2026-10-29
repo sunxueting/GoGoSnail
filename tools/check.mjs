@@ -61,7 +61,14 @@ try {
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 2, { timeout: 25000 });
   await page.screenshot({ path: path.join(root, 'artifacts/gameover.png') });
   const mapBeforeRevive = await page.evaluate(() => cc.find('Map').__instanceId);
-  await page.touchscreen.tap(195, 420);
+  const revivePoint = await page.evaluate(() => {
+    const node = cc.find('CameraCon/Camera/UILayer/OverGame/AgainButton');
+    let rect = node.getBoundingBoxToWorld();
+    rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
+    const vp = cc.view.getViewPortRect(), frame = cc.view.getFrameSize(), dpr = cc.view.getDevicePixelRatio();
+    return { x: (vp.x + (rect.x + rect.width / 2) * cc.view.getScaleX()) / (frame.width * dpr) * innerWidth, y: innerHeight - (vp.y + (rect.y + rect.height / 2) * cc.view.getScaleY()) / (frame.height * dpr) * innerHeight };
+  });
+  await page.touchscreen.tap(revivePoint.x, revivePoint.y);
   await page.waitForTimeout(300);
   const revive = await page.evaluate(() => ({
     state: cc.find('Map').getComponent('UIManager')._CurrentState,

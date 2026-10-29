@@ -104,7 +104,7 @@ async function tapNode(page, nodePath) {
 async function verifyReward(page) {
   const result = await page.evaluate(() => {
     const map = cc.find('Map'), player = cc.find('Player').getComponent('PlayerControl');
-    return { state: map.getComponent('UIManager')._CurrentState, hp: player.HP, initialHP: player.initHp, score: map.getComponent('ScoreManager').PlayerScore, dead: player.lsDead, lives: cc.director.getScene().getComponentsInChildren('FacebookInstant')[0].MoreLiftCount, adCalls: __adCalls, notice: cc.find('CameraCon/Camera/UILayer/ReleasePresentation/ChineseReviveNotice').activeInHierarchy };
+    return { state: map.getComponent('UIManager')._CurrentState, hp: player.HP, initialHP: player.initHp, score: map.getComponent('ScoreManager').PlayerScore, dead: player.lsDead, lives: cc.director.getScene().getComponentsInChildren('FacebookInstant')[0].MoreLiftCount, adCalls: __adCalls, notice: cc.find('CameraCon/Camera/UILayer/ReleasePresentation/ChineseReviveNotice').activeInHierarchy, hpHUD: cc.find('Canvas/HP').activeInHierarchy, progressHUD: cc.find('CameraCon/Camera/deathboxUp/progressBar').activeInHierarchy };
   });
   assert.equal(result.state, 1);
   assert.equal(result.hp, result.initialHP);
@@ -112,6 +112,8 @@ async function verifyReward(page) {
   assert.equal(result.lives, 0);
   assert.equal(result.adCalls, 0);
   assert.equal(result.notice, true);
+  assert.equal(result.hpHUD, true, 'Revive restores the gameplay HP display');
+  assert.equal(result.progressHUD, true, 'Revive restores the gameplay progress display');
   return result;
 }
 try {

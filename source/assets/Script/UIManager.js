@@ -243,6 +243,8 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
            this.canvas.off(cc.Node.EventType.TOUCH_START,this.TapReStart,this);
            this._CurrentState  = GameState.GamePlay;
            this.ScoreShow.active = true;
+           this.HPShow.active = true;
+           this.processBar.active = true;
     },
     restartGame :function()
     {
@@ -273,6 +275,8 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
         this._OG_UINode[OverGameUI_TYPE.OG_CurScore].getComponent(cc.Label).string =  ScoreManager._instance.PlayerScore;
         this._OG_UINode[OverGameUI_TYPE.OG_TopScore].getChildByName('score').getComponent(cc.Label).string =   ScoreManager._instance.GetTopScore();
         this.ScoreShow.active = false;
+        this.HPShow.active = false;
+        this.processBar.active = false;
           if(ScoreManager._instance._lsNewRecord)
              this._OG_UINode[OverGameUI_TYPE.OG_NEWRecord].active = true;
           else

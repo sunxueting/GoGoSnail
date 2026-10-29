@@ -60,7 +60,7 @@ npm run test:revive
 
 - `npm test`：教程、跳跃、失败、每局一次免费继续、重开及本机纪录。
 - `npm run test:profile`：使用模拟微信 API 和合成信息验证授权、拒绝、删除、撤销及隐私确认衔接。
-- `npm run test:layout`：四种尺寸的背景覆盖，以及复活目标和边界。
+- `npm run test:layout`：四种尺寸的背景覆盖、七种尺寸结算页遮罩/安全区/控件边界，以及复活目标和边界。
 - `npm run test:release`：正式名称、实际分享调用、四屏标题/按钮边界、适龄和健康提示的真实触摸及遮罩覆盖、冷启动纪录页恢复。
 - `npm run test:performance`：采样实际 Cocos 调用次数，防止静止首页逐帧布局或同步读取最高分。帧时间仅为本地参考，不等同于微信模拟器或手机帧率。
 - `npm run test:ranking`：以真实服务逻辑和内存事务数据库验证多用户排名、最高分、公开资料检查及删除。
