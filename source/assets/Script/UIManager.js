@@ -89,6 +89,7 @@ var UIManager = cc.Class({
  
     onLoad () {
         UIManager._instance = this;
+        this.reviveOffer = require('ReviveOffer').create();
 this.gameLogic = cc.find('Map').getComponent('GameLogic');
         this._MM_UINode[MMUI_TYPE.MM_Logo] = cc.find('CameraCon/Camera/deathboxUp/MMlogo');
         this._MM_UINode[MMUI_TYPE.MM_Bg] = cc.find('Canvas/UINode/MainMenu');
@@ -143,6 +144,7 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
 
     SetOverGameVisible :function(_visible)
     {
+        if (!_visible && this.reviveOffer) this.reviveOffer.hide();
         var ovLen = this._OG_UINode.length;
         if(_visible)
              ovLen --;
@@ -265,6 +267,7 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
     },
     EnterOverGame :function()
     {
+        if (this._CurrentState === GameState.OverGame) return;
         this._CurrentState  = GameState.OverGame;
         this.SetOverGameVisible(true);
         this._OG_UINode[OverGameUI_TYPE.OG_CurScore].getComponent(cc.Label).string =  ScoreManager._instance.PlayerScore;
@@ -279,8 +282,24 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
         if(FacebookInstant._instance.MoreLiftCount<=0)
             this._OG_UINode[OverGameUI_TYPE.OG_AD].active = false;
 
+        if (this.CanRevive()) this.reviveOffer.show();
+
   //      FacebookInstant._instance.resetAD();
     },  
+
+    CanRevive: function () {
+        return this._CurrentState === GameState.OverGame && this.countDownTime > 0 &&
+            FacebookInstant._instance.MoreLiftCount > 0 &&
+            this._OG_UINode[OverGameUI_TYPE.OG_AD].activeInHierarchy;
+    },
+
+    ClaimRevive: function () {
+        if (!this.CanRevive()) return false;
+        var self = this;
+        var revived = this.reviveOffer.claim(function () { return self.gameLogic.ContinueGame(); });
+        if (revived) require('ReleasePresentation')().showReviveNotice();
+        return revived;
+    },
 
     EnterSubTutorail:function()
     {
@@ -449,6 +468,7 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
                      this._OG_UINode[OverGameUI_TYPE.OG_AD].getChildByName('Time').getComponent(cc.Label).string = time;
                      if(this.countDownTime <=0){
                           this._OG_UINode[OverGameUI_TYPE.OG_AD].active = false;
+                          this.reviveOffer.hide();
                      }
                     }
                  }

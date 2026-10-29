@@ -145,10 +145,35 @@ var Presentation = cc.Class({
         graphics.roundRect(-140, -80, 280, 160, 24);
         graphics.fill();
         this.bindings.push({ node: background, target: again, x: 0, y: 0 });
-        this.bind(again, 'ChineseContinue', '免费继续一次', 270, 65, 38, 0, 35);
+        // Draw the video icon locally: emoji rendering differs between devices.
+        var video = new cc.Node('ReviveVideoIcon');
+        again.addChild(video);
+        var icon = video.addComponent(cc.Graphics);
+        icon.strokeColor = cc.Color.WHITE;
+        icon.fillColor = cc.Color.WHITE;
+        icon.lineWidth = 3;
+        icon.roundRect(-20, -17, 40, 34, 5);
+        icon.stroke();
+        icon.moveTo(-5, -9); icon.lineTo(10, 0); icon.lineTo(-5, 9); icon.close(); icon.fill();
+        this.bindings.push({ node: video, target: again, x: -110, y: 35 });
+        this.bind(again, 'ChineseContinue', '看广告复活', 220, 65, 38, 25, 35);
         var timer = cc.find(layer + 'OverGame/AgainButton/Time').getComponent(cc.Label);
         timer.enabled = false;
         this.bind(again, 'ChineseCountdown', function () { return '剩余 ' + timer.string + ' 秒'; }, 260, 55, 30, 0, -35, cc.color(216, 244, 225));
+
+        this.reviveNotice = new cc.Node('ChineseReviveNotice');
+        this.node.addChild(this.reviveNotice);
+        this.reviveNotice.setContentSize(800, 150);
+        this.bindings.push({ node: this.reviveNotice, target: this.node, x: 0, y: 0, screen: function (size) { return cc.v2(size.width / 2, size.height * 0.72); } });
+        this.reviveNotice.zIndex = 32767;
+        var noticeBackground = new cc.Node('Background');
+        this.reviveNotice.addChild(noticeBackground);
+        var noticeShade = noticeBackground.addComponent(cc.Graphics);
+        noticeShade.fillColor = cc.color(15, 38, 55, 235);
+        noticeShade.roundRect(-400, -75, 800, 150, 20);
+        noticeShade.fill();
+        text(this.reviveNotice, 'Message', '本次免广告\n已为您满血复活！', 800, 150, 42);
+        this.reviveNotice.active = false;
         this.hidePicture(layer + 'OverGame/TapToRestart', true);
         this.bind(layer + 'OverGame/TapToRestart', 'ChineseRestart', '点击空白处重新开始', 570, 100, 38);
         this.hidePicture(layer + 'OverGame/Top/newrecord');
@@ -175,6 +200,12 @@ var Presentation = cc.Class({
         this.lateUpdate();
     },
     onDestroy: function () { if (this._unsubscribeRanking) this._unsubscribeRanking(); },
+    showReviveNotice: function () {
+        // Non-modal: grant immediately without waiting for network or a dialog.
+        this.reviveNotice.active = true;
+        var self = this;
+        this.scheduleOnce(function () { self.reviveNotice.active = false; }, 2);
+    },
     showNotice: function (kind) {
         if (this.notice) return;
         var size = cc.view.getVisibleSize();
@@ -253,4 +284,5 @@ module.exports = function () {
         parent.addChild(host);
         host.addComponent(Presentation);
     }
+    return host.getComponent(Presentation);
 };

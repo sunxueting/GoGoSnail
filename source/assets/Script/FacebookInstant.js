@@ -1,5 +1,5 @@
 // Keep the serialized component identity so the delivered scene remains valid.
-// This release uses local records and one free revive per run.
+// One free revive per run; the video placement measures intent without an ad SDK.
 var FacebookInstant = cc.Class({
     extends: cc.Component,
     statics: { _instance: null },
@@ -39,7 +39,7 @@ var FacebookInstant = cc.Class({
     },
     showGobalLeaderBoard: function () { this.showLeaderboard(); },
     showInterstitialAD: function () { cc.find('Map').getComponent('GameLogic').restartGame(); },
-    showAD: function () { cc.find('Map').getComponent('GameLogic').CheckContinueGame(); },
+    showAD: function () { return cc.find('Map').getComponent('UIManager').ClaimRevive(); },
     invateGame: function () { cc.find('Map').getComponent('UIManager').EnterGame(); },
     // Retained for compatibility with existing scene events; no ad SDK is loaded.
     resetAD: function () {},
