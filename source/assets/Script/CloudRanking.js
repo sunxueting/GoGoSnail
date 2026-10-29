@@ -6,6 +6,8 @@ var generation = 0;
 var run = null;
 var submission = '';
 var pageRequest = 0;
+var membershipEpoch = 0;
+var leaving = false;
 var CONSENT = 'global-ranking-v1';
 
 function enabled() { return !!config.environmentId && typeof wx !== 'undefined' && !!wx.cloud && typeof wx.cloud.callFunction === 'function'; }
@@ -14,7 +16,7 @@ function call(action, data) {
     return new Promise(function (resolve, reject) {
         if (!enabled() || typeof wx === 'undefined' || !wx.cloud || !wx.cloud.callFunction) { reject(new Error('CLOUD_UNAVAILABLE')); return; }
         var settled = false;
-        var timer = setTimeout(function () { finish(new Error('TIMEOUT')); }, 12000);
+        var timer = setTimeout(function () { finish(new Error('TIMEOUT')); }, 25000);
         function finish(error, value) {
             if (settled) return;
             settled = true;
@@ -45,43 +47,75 @@ function refresh(offset) {
         state.status = 'error'; state.message = '排行榜暂时无法连接，请点击重试'; emit();
     });
 }
-function beginRun() {
-    var epoch = ++generation;
-    run = null;
-    submission = '';
-    if (!enabled() || !state.data || !state.data.joined) return;
-    run = call('start').then(function (value) {
-        if (epoch !== generation) throw new Error('STALE_RUN');
-        return value.runId;
+// Retry only transport/rate-limit failures. Never turn an invalid run or an
+// opt-out into a new, implicitly enrolled score.
+function retry(action, data, context, attempt) {
+    if (context.cancelled || context.membership !== membershipEpoch) return Promise.reject(new Error('CANCELLED'));
+    return call(action, data).catch(function (error) {
+        if (!/^(TIMEOUT|SERVICE_UNAVAILABLE|TOO_FREQUENT)$/.test(error.message) || (attempt || 0) >= 2) throw error;
+        if (context === run) { submission = '网络暂时不稳，正在重试同步…'; emit(); }
+        return new Promise(function (resolve) { setTimeout(resolve, 2200 * ((attempt || 0) + 1)); })
+            .then(function () { return retry(action, data, context, (attempt || 0) + 1); });
     });
-    // Keep a failed start from becoming an unhandled promise during gameplay.
-    run.catch(function () {});
+}
+function beginRun() {
+    var previous = run;
+    var context = { epoch: ++generation, membership: membershipEpoch, cancelled: false, latest: -1, confirmed: -1, pending: Promise.resolve() };
+    run = context;
+    submission = '';
+    if (!enabled() || leaving) { run = null; return; }
+    // The server is authoritative about participation. Cached list data may not
+    // have arrived yet when the player quickly taps Start after a cold launch.
+    // Finish the previous score request before issuing a new server run token.
+    context.ready = (previous ? Promise.all([previous.ready.catch(function () {}), previous.pending]) : Promise.resolve()).catch(function () {}).then(function () {
+        return retry('start', null, context);
+    }).then(function (value) { context.startError = null; return value.runId; }, function (error) { context.startError = error; throw error; });
+    context.ready.catch(function () {});
 }
 function submit(score) {
-    if (!run) {
+    var context = run;
+    if (!context) {
         if (enabled()) { submission = '本局保存在本机；参加全服排名后同步新对局'; emit(); }
-        return;
+        return Promise.resolve();
     }
-    var epoch = generation;
+    if (!isFinite(score) || score < 0) return Promise.resolve();
+    context.latest = Math.max(context.latest, Math.floor(score));
     submission = '正在同步本局成绩…'; emit();
-    run.then(function (runId) {
-        if (epoch !== generation) return;
-        return call('submit', { runId: runId, score: score });
-    }).then(function (result) {
-        if (!result || epoch !== generation) return;
-        submission = '成绩已同步至全服排行榜'; emit();
-        refresh(0);
-    }).catch(function () {
-        if (epoch !== generation) return;
-        submission = '成绩未同步，已保留本机纪录';
-        state.message = '本局成绩未同步，已保留本机纪录'; emit();
+    context.pending = context.pending.catch(function () {}).then(function () {
+        if (context.cancelled || context.membership !== membershipEpoch || context.latest <= context.confirmed) return;
+        var points = context.latest;
+        return context.ready.then(function (runId) { return retry('submit', { runId: runId, score: points }, context); })
+            .then(function (result) {
+                if (context.cancelled || context.membership !== membershipEpoch) return;
+                context.confirmed = Math.max(context.confirmed, points);
+                if (context === run) { submission = '成绩已同步至全服排行榜'; emit(); }
+                return refresh(0);
+            });
+    }).catch(function (error) {
+        if (context !== run || context.cancelled || context.membership !== membershipEpoch) return;
+        submission = error.message === 'JOIN_REQUIRED' ? '未参加全服排名，本局仅保存在本机' : /^(INVALID_RUN|EXPIRED_RUN|INVALID_SCORE)$/.test(error.message) ? '本局未通过同步校验，请重新开局；本机纪录已保留' : '成绩未同步，点击此处重试；本机纪录已保留';
+        emit();
     });
+    return context.pending;
+}
+function retryScore() {
+    if (!run || run.latest < 0) return Promise.resolve();
+    var context = run;
+    if (context.startError && /^(TIMEOUT|SERVICE_UNAVAILABLE|TOO_FREQUENT)$/.test(context.startError.message)) {
+        context.ready = retry('start', null, context).then(function (value) { context.startError = null; return value.runId; }, function (error) { context.startError = error; throw error; });
+        context.ready.catch(function () {});
+    }
+    return submit(context.latest);
 }
 function join() {
     return call('join', { consentVersion: CONSENT }).then(function () { return refresh(0); });
 }
 function leave() {
-    return call('leave').then(function () { generation++; run = null; return refresh(0); });
+    leaving = true;
+    membershipEpoch++;
+    if (run) run.cancelled = true;
+    run = null; submission = ''; emit();
+    return call('leave').then(function () { generation++; leaving = false; return refresh(0); }, function (error) { leaving = false; throw error; });
 }
 function publishProfile(profile) {
     // Saved device-local authorization never implies consent to public upload.
@@ -97,7 +131,7 @@ function publishProfile(profile) {
     }).then(function () { return refresh(0); });
 }
 module.exports = {
-    enabled: enabled, refresh: refresh, beginRun: beginRun, submit: submit,
+    enabled: enabled, refresh: refresh, beginRun: beginRun, submit: submit, retryScore: retryScore,
     join: join, leave: leave, publishProfile: publishProfile,
     clearProfile: function () { return call('clearProfile').then(function () { return refresh(0); }); },
     state: function () { return state; },

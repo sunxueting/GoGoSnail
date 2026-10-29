@@ -130,7 +130,9 @@ module.exports = function (board, openLocal) {
         if (state.status !== 'ready' || !state.data) { summary.string = '暂未获取全服成绩'; mine.string = ''; return; }
         current = state.data;
         summary.string = current.total ? '共 ' + current.total + ' 位玩家 · 全服最高 ' + current.highest : '暂无成绩，参加后完成一局即可上榜';
-        mine.string = current.mine ? '我的名次：' + current.mine.rank + '    最高分：' + current.mine.score : current.joined ? '已参加 · 完成下一局后记录成绩' : '未参加 · 可正常游玩';
+        var localBest = require('ScoreManager')._instance.GetTopScore();
+        mine.string = current.mine ? '我的名次：' + current.mine.rank + '    云端纪录：' + current.mine.score +
+            (localBest > current.mine.score ? '\n本机纪录：' + localBest + '（尚未全部同步至云端）' : '') : current.joined ? '已参加 · 完成下一局后记录成绩' : '未参加 · 可正常游玩';
         join.string = current.joined ? '已参加全服排名' : '参加全服排名';
         publish.string = current.profilePublished ? '更新公开资料' : '公开头像昵称';
         var rowTop = top - 235;

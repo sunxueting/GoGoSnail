@@ -35,7 +35,8 @@ const prelude = `(function(){
   if(!state||typeof callback!=='function')return original.apply(this,args);
   state.calls[dir]=(state.calls[dir]||0)+1;
   if(state.failures[dir]>0){state.failures[dir]--;setTimeout(function(){callback(new Error('synthetic resource failure'));},0);return;}
-  args[index]=function(error,value){setTimeout(function(){callback(error,value);},state.delays[dir]||0);};
+  args[index]=function(error,value){var deliver=function(){setTimeout(function(){callback(error,value);},state.delays[dir]||0);};
+   if(state.holds.indexOf(dir)>=0)(state.waiting[dir]||(state.waiting[dir]=[])).push(deliver);else deliver();};
   return original.apply(this,args);
  };});
 })();\n`;
@@ -53,10 +54,16 @@ const url = `http://127.0.0.1:${server.address().port}`;
 async function open(faults) {
   const page = await browser.newPage({ viewport: { width: 393, height: 911 }, hasTouch: true, isMobile: true });
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(faults => { window.__streamTest = { calls: {}, failures: faults.failures || {}, delays: faults.delays || {} }; }, faults);
+  await page.addInitScript(faults => { window.__streamTest = { calls: {}, failures: faults.failures || {}, delays: faults.delays || {}, holds: faults.holds || [], waiting: {} }; }, faults);
   await page.goto(url);
   await page.waitForFunction(() => window.__snailSceneReady);
   return page;
+}
+async function release(page, paths) {
+  await page.evaluate(paths => {
+    __streamTest.holds = __streamTest.holds.filter(p => !paths.includes(p));
+    paths.forEach(p => { (__streamTest.waiting[p] || []).forEach(deliver => deliver()); delete __streamTest.waiting[p]; });
+  }, paths);
 }
 async function start(page) {
   await page.evaluate(() => { localStorage.setItem('TutorailFinished', 'true'); cc.find('Map').getComponent('GameLogic').startGame(); });
@@ -77,9 +84,10 @@ async function tap(page, name) {
 }
 try {
   fs.mkdirSync(path.join(root, 'artifacts'), { recursive: true });
-  const page = await open({ delays: { 'Level/LV1Map': 1800, 'Prefab/GoodFood': 2300, 'Texture/BG': 5500 }, failures: { 'Level/LV2Map': 1 } });
+  const page = await open({ holds: ['Level/LV1Map', 'Prefab/GoodFood', 'Texture/BG'], failures: { 'Level/LV2Map': 1 } });
   await start(page);
-  await page.waitForTimeout(250);
+  // Wait for the observed last-row completion, not a machine-speed assumption.
+  await page.waitForFunction(() => !!cc.find('MapDataManager').getComponent('UtilManager').MemoryMapArray[10]);
   const early = await page.evaluate(() => {
     const util = cc.find('MapDataManager').getComponent('UtilManager');
     return { ready: util.GetMapFinished(), late: !!util.MemoryMapArray[10], delayed: !!util.MemoryMapArray[1], center: !!cc.find('Player').getComponent('PlayerControl').currentCenter };
@@ -88,6 +96,7 @@ try {
   assert.equal(early.late, true);
   assert.equal(early.delayed, false);
   assert.equal(early.center, false, 'Gameplay does not start before critical resources');
+  await release(page, ['Level/LV1Map', 'Prefab/GoodFood']);
   await ready(page);
   const loaded = await page.evaluate(() => {
     const util = cc.find('MapDataManager').getComponent('UtilManager');
@@ -114,6 +123,7 @@ try {
     assert.equal(background.frame, true, 'Delayed background never replaces the current frame with null');
     await page.waitForTimeout(100);
   }
+  await release(page, ['Texture/BG']);
   await page.waitForFunction(() => cc.find('Canvas').getComponent('BgChangeInstance')._loadFinished);
   for (const score of [50, 150, 650, 1600]) {
     await page.evaluate(score => { cc.find('Map').getComponent('ScoreManager').PlayerScore = score; }, score);
@@ -143,7 +153,10 @@ try {
   await start(streaming); await ready(streaming);
   await streaming.evaluate(() => { cc.find('Player').getComponent('PlayerControl').InvincibleTime = 1000; });
   const landings = [];
-  for (let jump = 0; jump < 8; jump++) {
+  let launchAttempts = 0;
+  // A valid physical landing can hit a lower intervening circle. That is not
+  // a missing-map failure; let the aiming agent try again within a fixed bound.
+  for (; landings.length < 8 && launchAttempts < 32; launchAttempts++) {
     await streaming.waitForFunction(() => {
       const player = cc.find('Player').getComponent('PlayerControl'), current = player.currentCenter;
       if (!current || player.lsDead) return false;
@@ -172,10 +185,10 @@ try {
       const player = cc.find('Player').getComponent('PlayerControl');
       return { from: __launchHeight, to: player.circlePosition(player.currentCenter).y, chunks: cc.find('MapDataManager').getComponent('MapDataManager').currentMapCount };
     });
-    assert.ok(landed.to > landed.from, 'A real touch/physics jump lands on a higher circle');
-    landings.push(landed);
+    if (landed.to > landed.from) landings.push(landed);
   }
-  checks.push({ name: 'Eight real touchscreen launches and physics landings across chunk seams; invincibility isolates map continuity', landings });
+  assert.equal(landings.length, 8, 'Bounded touch agent completes eight upward physics landings');
+  checks.push({ name: 'Eight upward touchscreen/physics landings across chunk seams; invincibility isolates map continuity', launchAttempts, landings });
   await streaming.evaluate(() => {
     cc.find('Player').active = false; // Synthetic camera stress, not a claim of natural human play.
     cc.find('CameraCon/Camera').getComponent('cameraControl').CameraPause = true;

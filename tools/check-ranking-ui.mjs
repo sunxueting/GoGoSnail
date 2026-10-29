@@ -117,6 +117,11 @@ try {
   await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());
   await page.waitForFunction(p => cc.find(p).getComponent(cc.Label).string.includes('我的名次：1'), panel + 'Mine');
   assert.match(await text('Summary'), /全服最高 210/);
+  await page.evaluate(() => localStorage.setItem('TopScore', '240'));
+  await tap('Refresh');
+  await page.waitForFunction(p => cc.find(p).getComponent(cc.Label).string.includes('本机纪录：240'), panel + 'Mine');
+  assert.match(await text('Mine'), /云端纪录：210/);
+  assert.match(await text('Summary'), /全服最高 210/, 'Historical local best is never misrepresented as an accepted cloud score');
   await tap('Next');
   await page.waitForFunction(() => __rankingTest.calls.some(c => c.action === 'list' && c.offset === 20));
   await page.waitForFunction(p => cc.find(p).children.length === 1 && cc.find(p).children[0].getChildByName('Content').children.length === 18, panel + 'Rows');
@@ -197,7 +202,7 @@ try {
   await page.evaluate(() => __rankingTest.modals.pop().success({ confirm: true }));
   await page.waitForFunction(p => cc.find(p).getComponent(cc.Label).string.includes('未参加'), panel + 'Mine');
   assert.equal(store.players.size, 25);
-  assert.equal(await page.evaluate(() => Number(localStorage.getItem('TopScore'))), 210, 'Cloud deletion preserves local best');
+  assert.equal(await page.evaluate(() => Number(localStorage.getItem('TopScore'))), 240, 'Cloud deletion preserves local best');
   await tap('Close');
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ passed: true, environment: 'Actual Cocos UI, mocked wx transport + production service with memory transactions; not cloud/phone certification', checks: ['startup read only', 'highest from all users', 'join decline/agree', 'run upload and personal rank', 'pagination', 'local profile never auto-published', 'separate public consent', 'revoked permission blocks upload', 'cloud profile withdrawal', 'cloud deletion preserves local best', 'four viewport layouts', 'offline clears stale rows', 'native capsule does not cover return controls', 'footer return restores usable menu in four viewports', 'game starts after return', 'close remains usable'], errors }, null, 2));

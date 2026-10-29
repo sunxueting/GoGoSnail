@@ -67,7 +67,39 @@ try {
     cc.find('Map').getComponent('GameLogic').startGame();
   });
   await page.waitForFunction(() => cc.find('Player').getComponent('PlayerControl').currentCenter);
-  await page.evaluate(() => cc.find('Player').getComponent('PlayerControl').missionFailed());
+  // Inspect the separate immediate mask, BEFORE the delayed game-over UI.
+  await page.evaluate(() => {
+    const player = cc.find('Player').getComponent('PlayerControl');
+    player.DelayFailTime = 30;
+    player.missionFailed();
+    player.UIBlinkAnim.getComponent(cc.Animation).stop();
+    cc.find('CameraCon/Camera/UILayer/Blink_White/white').opacity = 125;
+    const mask = cc.find('CameraCon/Camera/UILayer/Blink_White/white');
+    if (!mask.getChildByName('FullScreenShade')) throw new Error('First death frame was not fitted synchronously');
+  });
+  for (const [width, height] of [[393, 911], [320, 568], [430, 932]]) {
+    await page.setViewportSize({ width, height });
+    await page.waitForTimeout(100);
+    // Simulate an anchor changing after first layout without a viewport resize.
+    await page.evaluate(() => { cc.find('CameraCon/Camera/UILayer/Blink_White').y += 140; });
+    await page.waitForTimeout(50);
+    const shaded = PNG.sync.read(await page.screenshot({ path: path.join(root, `artifacts/death-first-mask-${width}x${height}.png`) }));
+    await page.evaluate(() => { cc.find('CameraCon/Camera/UILayer/Blink_White').active = false; });
+    const clear = PNG.sync.read(await page.screenshot());
+    for (const [x, y] of [[3, 3], [width - 4, 3], [3, height - 4], [width - 4, height - 4]]) {
+      const i = (y * width + x) * 4;
+      const sum = image => image.data[i] + image.data[i + 1] + image.data[i + 2];
+      assert.ok(sum(shaded) < sum(clear) * 0.8 && sum(shaded) > sum(clear) * 0.1, 'Immediate death mask is translucent and covers corners after parent movement');
+    }
+    await page.evaluate(() => { cc.find('CameraCon/Camera/UILayer/Blink_White').active = true; });
+    checks.push({ name: 'Immediate death mask, synchronous first-frame fit and later parent movement', width, height, passed: true });
+  }
+  await page.evaluate(() => {
+    const player = cc.find('Player').getComponent('PlayerControl');
+    player.unscheduleAllCallbacks();
+    cc.find('CameraCon/Camera/UILayer/Blink_White/white').opacity = 0;
+    player.OverGame();
+  });
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 2);
   await page.evaluate(() => {
     cc.find('Map').getComponent('UIManager').countDownTime = 60;

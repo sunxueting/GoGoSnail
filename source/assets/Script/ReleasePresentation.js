@@ -190,6 +190,8 @@ var Presentation = cc.Class({
         if (online) {
             this.gameOverStatus = this.bind(layer + 'OverGame', 'GlobalScoreStatus', function () { return ranking.submission(); }, 900, 60, 30);
             this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.status; };
+            this.gameOverStatus.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
+            this.gameOverStatus.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); ranking.retryScore(); });
         }
 
         this.safety = new cc.Node('ChineseSafetyLinks');

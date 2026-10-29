@@ -518,6 +518,7 @@ var PlayerControl =cc.Class({
         this.SetPlayerVisible(false);
         this.UIBlinkAnim.active = true;
         this.UIBlinkAnim.getComponent(cc.Animation).play();
+        require('ScreenLayout')();
         var deadVfx = cc.instantiate(this.utilManager._VfxPlayerDead);
         deadVfx.parent = this.node;
         deadVfx.setPosition(cc.p(0,0));

@@ -1,6 +1,6 @@
 {
   "name": "gogo-snail-release",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "private": true,
   "type": "module",
   "engines": {
@@ -17,7 +17,8 @@
     "test:ranking": "node tools/check-cloud-ranking.mjs",
     "test:ranking-ui": "node tools/check-ranking-ui.mjs",
     "test:revive": "node tools/check-revive-offer.mjs",
-    "test:progression": "node tools/check-progression.mjs"
+    "test:progression": "node tools/check-progression.mjs",
+    "test:score-sync": "node tools/check-score-sync.mjs"
   },
   "devDependencies": {
     "esbuild": "^0.25.0",

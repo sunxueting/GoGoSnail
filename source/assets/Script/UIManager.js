@@ -272,6 +272,7 @@ this.gameLogic = cc.find('Map').getComponent('GameLogic');
         if (this._CurrentState === GameState.OverGame) return;
         this._CurrentState  = GameState.OverGame;
         this.SetOverGameVisible(true);
+        require('ScreenLayout')();
         this._OG_UINode[OverGameUI_TYPE.OG_CurScore].getComponent(cc.Label).string =  ScoreManager._instance.PlayerScore;
         this._OG_UINode[OverGameUI_TYPE.OG_TopScore].getChildByName('score').getComponent(cc.Label).string =   ScoreManager._instance.GetTopScore();
         this.ScoreShow.active = false;
