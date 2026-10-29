@@ -35,7 +35,7 @@ const server = http.createServer(async (req, res) => {
   let content = fs.readFileSync(file);
   if (url.pathname === '/src/project.js') {
     // Enable ONLY in this test's HTTP response, never in a production artifact.
-    content = content.toString().replace("environmentId: ''", "environmentId: 'local-ranking-test'");
+    content = content.toString().replace(/environmentId: '[^']*'/, "environmentId: 'local-ranking-test'");
   }
   res.end(content);
 });
@@ -127,6 +127,7 @@ try {
   assert.match(await text('Status'), /本机资料/);
   await tap('LocalProfile');
   await page.waitForFunction(() => __rankingTest.infoButtons.length > 0);
+  assert.match(await page.evaluate(() => cc.find('CameraCon/Camera/UILayer/Leaderboard/PlayerProfilePanel/ProfileStatus').getComponent(cc.Label).string), /另行同意后才上传公开/, 'Local authorization copy explains separate cloud consent');
   await page.evaluate(() => __rankingTest.infoButtons.at(-1).tap({ userInfo: { nickName: '云榜测试蜗牛', avatarUrl: 'https://thirdwx.qlogo.cn/mmopen/test/132' } }));
   assert.equal(await page.evaluate(() => __rankingTest.calls.filter(c => c.action === 'publishProfile').length), 0, 'Device-only authorization never uploads identity');
   await page.evaluate(() => cc.find('Map').getComponent('UIManager').EnterLeaderBoard());

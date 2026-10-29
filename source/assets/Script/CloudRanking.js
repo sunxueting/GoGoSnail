@@ -8,7 +8,7 @@ var submission = '';
 var pageRequest = 0;
 var CONSENT = 'global-ranking-v1';
 
-function enabled() { return !!config.environmentId; }
+function enabled() { return !!config.environmentId && typeof wx !== 'undefined' && !!wx.cloud && typeof wx.cloud.callFunction === 'function'; }
 function emit() { listeners.slice().forEach(function (fn) { fn(state); }); }
 function call(action, data) {
     return new Promise(function (resolve, reject) {

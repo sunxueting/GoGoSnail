@@ -73,10 +73,11 @@ function notice(text) {
 }
 
 function mount(board) {
+    var hasGlobalRanking = require('CloudRanking').enabled();
     var host = new cc.Node('PlayerProfilePanel');
     board.node.addChild(host);
     var title = label(host, 'ProfileName', '', -250, 440, 44, 28).getComponent(cc.Label);
-    label(host, 'ProfilePurpose', '头像昵称仅用于本机纪录展示\n拒绝授权也可正常游戏', -310, 440, 80, 23);
+    label(host, 'ProfilePurpose', hasGlobalRanking ? '本页授权仅用于本机纪录\n全服公开须另行同意，拒绝可正常游戏' : '头像昵称仅用于本机纪录展示\n拒绝授权也可正常游戏', -310, 440, 80, 23);
     var authorize = label(host, 'ProfileAuthorize', '授权头像昵称', -410, 330, 64, 26);
     var backgroundNode = new cc.Node('ButtonBackground');
     authorize.addChild(backgroundNode);
@@ -90,7 +91,7 @@ function mount(board) {
     authorize.getComponent(cc.Label).enabled = false;
     label(authorize, 'Caption', '授权头像昵称', 0, 330, 64, 26);
     var remove = label(host, 'ProfileDelete', '删除本机头像昵称', -495, 400, 56, 23);
-    var status = label(host, 'ProfileStatus', '资料保存在本机，可随时删除\n不会上传到开发者服务器', -580, 440, 90, 22).getComponent(cc.Label);
+    var status = label(host, 'ProfileStatus', hasGlobalRanking ? '本页资料保存在本机，可随时删除\n在全服榜另行同意后才上传公开' : '资料保存在本机，可随时删除\n不会上传到开发者服务器', -580, 440, 90, 22).getComponent(cc.Label);
     var contract = label(host, 'ProfilePrivacy', '查看隐私指引', -670, 400, 50, 23);
     var nativeButton = null;
     var generation = 0;
@@ -144,7 +145,7 @@ function mount(board) {
         privacyPanel.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); });
         var width = Math.min(800, size.width - 80);
         label(privacyPanel, 'PrivacyTitle', '头像昵称与隐私保护', 240, width, 64, 38);
-        label(privacyPanel, 'PrivacyPurpose', '经你同意后获取微信头像、昵称\n仅用于本机纪录页展示，保存在设备本地\n不上传至开发者服务器，可随时删除\n拒绝不影响正常游戏', 110, width, 170, 28);
+        label(privacyPanel, 'PrivacyPurpose', hasGlobalRanking ? '经你同意后获取微信头像、昵称\n本页授权仅保存在本机，可随时删除\n在全服榜另行同意后才上传并公开\n拒绝不影响正常游戏' : '经你同意后获取微信头像、昵称\n仅用于本机纪录页展示，保存在设备本地\n不上传至开发者服务器，可随时删除\n拒绝不影响正常游戏', 110, width, 170, 28);
         var contractLink = label(privacyPanel, 'PrivacyContract', '查看《用户隐私保护指引》', -30, width, 65, 28);
         var agree = label(privacyPanel, 'PrivacyAgree', '同意并继续授权头像昵称', -130, width, 70, 32);
         agree.color = cc.color(85, 225, 165);
@@ -269,7 +270,7 @@ function mount(board) {
         loadedImage = null;
         if (avatarTexture) { avatarTexture.destroy(); avatarTexture = null; }
         refresh();
-        status.string = '已删除本机头像昵称\n最高分保留，可继续以游客身份游戏';
+        status.string = hasGlobalRanking ? '已删除本机头像昵称，最高分保留\n云端公开资料请到全服榜撤下' : '已删除本机头像昵称\n最高分保留，可继续以游客身份游戏';
     });
     contract.on(cc.Node.EventType.TOUCH_END, function () {
         if (typeof wx !== 'undefined' && wx.openPrivacyContract) wx.openPrivacyContract({ fail: function () { notice('暂时无法打开隐私指引'); } });
