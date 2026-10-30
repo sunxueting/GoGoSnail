@@ -11,9 +11,9 @@ var translations = {
     'Tap to Jump\nSnail leap forward on circle': '点击屏幕起跳\n把握时机，沿圆的切线飞出',
     'From Circle to Cirecle': '从一个圆跳向下一个圆',
     'HP  in the center\nGame over when Hp is 0': '圆心显示生命值\n生命值为 0 时游戏结束',
-    'Damage HP': '碰到障碍会损失生命',
-    'Heal HP': '收集道具恢复生命',
-    'Oni Kill': '击中怪物',
+    'Damage HP': '碰到障碍会损失生命值',
+    'Heal HP': '收集道具恢复生命值',
+    'Oni Kill': '击中怪物，游戏失败',
     'Hat spring': '利用弹簧起跳'
 };
 

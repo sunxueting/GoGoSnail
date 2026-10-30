@@ -192,7 +192,7 @@ try {
       assert.ok(Math.abs(row.icon.y + row.icon.height / 2 - row.text.y - row.text.height / 2) < 0.01, 'Caption and icon share a row center');
       if (row.number) assert.ok(inside(row.number, row.icon), 'Item digit stays inside its own icon');
     }
-    assert.deepEqual(tutorialRows.rows.map(row => row.caption), ['收集道具恢复生命', '碰到障碍会损失生命', '击中怪物']);
+    assert.deepEqual(tutorialRows.rows.map(row => row.caption), ['收集道具恢复生命值', '碰到障碍会损失生命值', '击中怪物，游戏失败']);
     assert.ok(tutorialRows.rows.every(row => Math.abs(row.icon.x - tutorialRows.rows[0].icon.x) < 0.01), 'All three icons align at the left edge');
     assert.ok(tutorialRows.rows.every(row => Math.abs(row.text.x - tutorialRows.rows[0].text.x) < 0.01), 'All descriptions align in a separate text column');
     await page.screenshot({ path: path.join(out, `tutorial-items-${width}x${height}.png`) });
