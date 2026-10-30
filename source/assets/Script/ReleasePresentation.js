@@ -235,9 +235,49 @@ var Presentation = cc.Class({
             this._unsubscribeRanking = ranking.subscribe(function () { self._layoutWarmup = 3; });
             ranking.refresh(0);
         }
+        this.layoutTutorialItems();
         this.lateUpdate();
     },
     onDestroy: function () { if (this._unsubscribeRanking) this._unsubscribeRanking(); },
+    layoutTutorialItems: function () {
+        var page = cc.find('CameraCon/Camera/UILayer/tut/view/content/page_5');
+        if (!page) return;
+        var rows = [
+            { icon: 'bonus', caption: 'Heal HP', y: 120 },
+            { icon: 'enemy', caption: 'Damage HP', y: 0 },
+            { icon: 'monsterBig', caption: 'Oni Kill', y: -120 }
+        ];
+        rows.forEach(function (row) {
+            var icon = page.getChildByName(row.icon);
+            var caption = page.getChildByName(row.caption) || icon.getChildByName(row.caption);
+            // Captions must not inherit the legacy icon's size or scaling.
+            caption.parent = page;
+            caption.setScale(1);
+            caption.setAnchorPoint(0, 0.5);
+            caption.setPosition(-page.width / 2 + 135, row.y);
+            var label = caption.getComponent(cc.Label);
+            label.fontSize = 28;
+            label.lineHeight = 36;
+            label.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+            label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            caption.setContentSize(page.width - 160, 64);
+            var scale = Math.min(78 / icon.width, 90 / icon.height);
+            icon.setScale(scale);
+            icon.setPosition(-page.width / 2 + 30 + icon.width * scale / 2, row.y);
+            var number = icon.getChildByName('numb');
+            if (number) {
+                var digit = number.getComponent(cc.Label);
+                digit.string = digit.string.trim();
+                digit.fontSize = row.icon === 'bonus' ? 18 : 22;
+                digit.lineHeight = digit.fontSize + 6;
+                digit.overflow = cc.Label.Overflow.SHRINK;
+                number.setAnchorPoint(0.5, 0.5);
+                number.setPosition(0, row.icon === 'bonus' ? 0 : -48);
+                number.setContentSize(row.icon === 'bonus' ? 34 : 27, 34);
+            }
+        });
+    },
     layoutGameOver: function (size) {
         var pixel = size.height / (cc.view.getFrameSize().height || size.height);
         var top = 0, bottom = 0;

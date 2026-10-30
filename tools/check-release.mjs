@@ -14,7 +14,7 @@ vm.runInNewContext(fs.readFileSync(path.join(root, 'source/assets/Script/Release
 const release = config.exports;
 const out = path.join(root, 'artifacts', 'release-' + release.version);
 fs.mkdirSync(out, { recursive: true });
-const errors = [], checks = [];
+const errors = [], checks = [], browserWarnings = [];
 const server = http.createServer((req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
   if (pathname === '/favicon.ico') { res.end(); return; }
@@ -32,7 +32,15 @@ const host = layer + 'ReleasePresentation/';
 try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  page.on('console', m => {
+    if (m.type() !== 'error') return;
+    const message = m.text();
+    // The fixed legacy web engine calls preventDefault on every touchstart.
+    // Chromium may make synthetic scroll-start events non-cancelable. Keep
+    // that exact intervention visible as a platform warning, not a JS failure.
+    if (message === 'Ignored attempt to cancel a touchstart event with cancelable=false, for example because scrolling is in progress and cannot be interrupted.') browserWarnings.push(message);
+    else errors.push(message);
+  });
   const tapNode = async nodePath => {
     const point = await page.evaluate(nodePath => {
       const node = cc.find(nodePath);
@@ -46,6 +54,9 @@ try {
     await page.waitForTimeout(80);
   };
   await page.goto(base);
+  // Native WeChat canvas has no browser page scrolling; reproduce that for
+  // the isolated Chromium touch-gesture check instead of starting a DOM scroll.
+  await page.addStyleTag({ content: 'html, body, #GameCanvas { touch-action: none; }' });
   await page.waitForFunction(() => window.__snailSceneReady);
   await page.waitForFunction(p => !!cc.find(p).getComponent(cc.Sprite).spriteFrame, top + 'MMlogo/HomeSnailMascot');
   for (const [width, height] of [[390, 844], [430, 932], [320, 568], [375, 667], [768, 1024]]) {
@@ -58,7 +69,9 @@ try {
       const size = cc.view.getVisibleSize();
       return paths.map(path => {
         const node = cc.find(path);
-        let rect = node.getBoundingBoxToWorld();
+        const a = node.convertToWorldSpaceAR(cc.v2(-node.width * node.anchorX, -node.height * node.anchorY));
+        const b = node.convertToWorldSpaceAR(cc.v2(node.width * (1 - node.anchorX), node.height * (1 - node.anchorY)));
+        let rect = cc.rect(a.x, a.y, b.x - a.x, b.y - a.y);
         if (cc.Camera.main && cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
         return { path, x: rect.x, y: rect.y, width: rect.width, height: rect.height, inside: rect.x >= -0.001 && rect.y >= -0.001 && rect.x + rect.width <= size.width + 0.001 && rect.y + rect.height <= size.height + 0.001 };
       });
@@ -126,6 +139,66 @@ try {
       await tapNode('CameraCon/Camera/ChineseSafetyNotice/NoticeClose');
       assert.equal(await page.evaluate(p => !!cc.find(p), 'CameraCon/Camera/ChineseSafetyNotice'), false);
     }
+    await tapNode('CameraCon/Camera/deathboxBottom/Tutotail');
+    await page.waitForFunction(p => cc.find(p).activeInHierarchy, layer + 'tut');
+    await page.evaluate(p => cc.find(p).getComponent(cc.PageView).scrollToPage(0, 0), layer + 'tut');
+    await page.waitForTimeout(80);
+    if (width === 390) {
+      const swipe = await page.evaluate(p => {
+        const node = cc.find(p + '/view');
+        const a = node.convertToWorldSpaceAR(cc.v2(-node.width * node.anchorX, -node.height * node.anchorY));
+        const b = node.convertToWorldSpaceAR(cc.v2(node.width * (1 - node.anchorX), node.height * (1 - node.anchorY)));
+        let rect = cc.rect(a.x, a.y, b.x - a.x, b.y - a.y);
+        if (cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
+        const size = cc.view.getVisibleSize();
+        return { from: (rect.x + rect.width * 0.85) / size.width * innerWidth, to: (rect.x + rect.width * 0.15) / size.width * innerWidth,
+          y: innerHeight - (rect.y + rect.height / 2) / size.height * innerHeight };
+      }, layer + 'tut');
+      // This test owns an isolated local Chromium, not a signed-in browser.
+      // Cocos ignores mouse drags when the mobile context exposes touch input.
+      const touch = await page.context().newCDPSession(page);
+      for (let i = 0; i < 3; i++) {
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: swipe.from, y: swipe.y }] });
+        for (let step = 1; step <= 12; step++) {
+          await touch.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: swipe.from + (swipe.to - swipe.from) * step / 12, y: swipe.y }] });
+          await page.waitForTimeout(12);
+        }
+        await touch.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await page.waitForTimeout(400);
+      }
+      await touch.detach();
+      assert.equal(await page.evaluate(p => cc.find(p).getComponent(cc.PageView).getCurrentPageIndex(), layer + 'tut'), 3, 'Real swipe input reaches the items page: ' + JSON.stringify(swipe));
+    } else {
+      await page.evaluate(p => cc.find(p).getComponent(cc.PageView).scrollToPage(3, 0), layer + 'tut');
+      await page.waitForTimeout(80);
+    }
+    const tutorialRows = await page.evaluate(p => {
+      const view = cc.find(p + '/view'), panel = cc.find(p + '/view/content/page_5');
+      function rect(node) {
+        const a = node.convertToWorldSpaceAR(cc.v2(-node.width * node.anchorX, -node.height * node.anchorY));
+        const b = node.convertToWorldSpaceAR(cc.v2(node.width * (1 - node.anchorX), node.height * (1 - node.anchorY)));
+        return { x: a.x, y: a.y, width: b.x - a.x, height: b.y - a.y };
+      }
+      return { clip: rect(view), rows: [['bonus', 'Heal HP'], ['enemy', 'Damage HP'], ['monsterBig', 'Oni Kill']].map(([a, b]) => {
+        const icon = panel.getChildByName(a), caption = panel.getChildByName(b);
+        return { icon: rect(icon), text: rect(caption), caption: caption.getComponent(cc.Label).string,
+          independent: caption.parent === panel, number: icon.getChildByName('numb') && rect(icon.getChildByName('numb')) };
+      }) };
+    }, layer + 'tut');
+    const inside = (rect, clip) => rect.x >= clip.x - 0.01 && rect.y >= clip.y - 0.01 && rect.x + rect.width <= clip.x + clip.width + 0.01 && rect.y + rect.height <= clip.y + clip.height + 0.01;
+    for (const row of tutorialRows.rows) {
+      assert.ok(row.independent && inside(row.icon, tutorialRows.clip) && inside(row.text, tutorialRows.clip), 'Tutorial icon and independent caption stay inside the page mask');
+      assert.ok(row.icon.x + row.icon.width + 10 < row.text.x, 'Tutorial icon never overlaps its caption');
+      assert.ok(Math.abs(row.icon.y + row.icon.height / 2 - row.text.y - row.text.height / 2) < 0.01, 'Caption and icon share a row center');
+      if (row.number) assert.ok(inside(row.number, row.icon), 'Item digit stays inside its own icon');
+    }
+    assert.deepEqual(tutorialRows.rows.map(row => row.caption), ['收集道具恢复生命', '碰到障碍会损失生命', '击中怪物']);
+    assert.ok(tutorialRows.rows.every(row => Math.abs(row.icon.x - tutorialRows.rows[0].icon.x) < 0.01), 'All three icons align at the left edge');
+    assert.ok(tutorialRows.rows.every(row => Math.abs(row.text.x - tutorialRows.rows[0].text.x) < 0.01), 'All descriptions align in a separate text column');
+    await page.screenshot({ path: path.join(out, `tutorial-items-${width}x${height}.png`) });
+    await tapNode(layer + 'tut/CloseButton');
+    assert.equal(await page.evaluate(p => cc.find(p).activeInHierarchy, layer + 'tut'), false, 'Tutorial close button returns to homepage');
+    checks.push({ name: 'Chinese item page: left aligned icons, separate complete captions, digit bounds and working close', width, height, realSwipe: width === 390 });
     checks.push({ name: 'Chinese official title and working age/health dialogs', width, height });
   }
   await page.evaluate(() => {
@@ -222,7 +295,7 @@ try {
   errors.push(error.stack || error.message);
   process.exitCode = 1;
 } finally {
-  const report = { checkedAt: new Date().toISOString(), version: release.version, displayName: release.displayName, passed: errors.length === 0, environment: 'Desktop Chromium, actual Cocos scene and delayed local resource fetch; not WeChat phone validation', checks, errors };
+  const report = { checkedAt: new Date().toISOString(), version: release.version, displayName: release.displayName, passed: errors.length === 0, environment: 'Desktop Chromium, actual Cocos scene and delayed local resource fetch; not WeChat phone validation', checks, browserWarnings, errors };
   fs.writeFileSync(path.join(out, 'release-check.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
   await browser.close();
