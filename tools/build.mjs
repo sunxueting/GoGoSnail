@@ -80,6 +80,9 @@ for (const platform of ['web', 'wechat']) {
   const privateConfig = fs.existsSync(savedPrivateConfigPath) ? read(savedPrivateConfigPath) : null;
   const dir = fs.mkdtempSync(path.join(out, '.' + platform + '-stage-'));
   copy(path.join(legacy, 'res'), path.join(dir, platform === 'wechat' ? 'assets/res' : 'res'));
+  const brandDir = path.join(dir, platform === 'wechat' ? 'assets/brand' : 'brand');
+  fs.mkdirSync(brandDir, { recursive: true });
+  copy(path.join(root, 'source/assets/resources/home-snail-rush.png'), path.join(brandDir, 'home-snail-rush.png'));
   {
     // Use the same system fonts in both builds. The WeChat runtime cannot rely
     // on legacy bitmap fonts; local validation must show the shipped typography.

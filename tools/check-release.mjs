@@ -47,22 +47,26 @@ try {
   };
   await page.goto(base);
   await page.waitForFunction(() => window.__snailSceneReady);
-  for (const [width, height] of [[390, 844], [430, 932], [375, 667], [768, 1024]]) {
+  await page.waitForFunction(p => !!cc.find(p).getComponent(cc.Sprite).spriteFrame, top + 'MMlogo/HomeSnailMascot');
+  for (const [width, height] of [[390, 844], [430, 932], [320, 568], [375, 667], [768, 1024]]) {
     await page.setViewportSize({ width, height });
     await page.waitForTimeout(300);
     assert.equal(await page.evaluate(p => cc.find(p).getComponent(cc.Label).string, top + 'MMlogo/OfficialGameTitle'), release.displayName);
     assert.equal(await page.evaluate(p => cc.find(p).getComponent(cc.Sprite).enabled, top + 'MMlogo'), false, 'Old English image title is hidden');
     const bounds = await page.evaluate(() => {
-      const paths = ['CameraCon/Camera/deathboxUp/MMlogo/OfficialGameTitle', 'CameraCon/Camera/deathboxBottom/Setting/ChineseCaption', 'CameraCon/Camera/deathboxBottom/Tutotail/ChineseCaption', 'CameraCon/Camera/deathboxBottom/LeaderBoard/ChineseCaption'];
+      const paths = ['CameraCon/Camera/deathboxUp/MMlogo/OfficialGameTitle', 'CameraCon/Camera/deathboxUp/MMlogo/HomeSnailMascot', 'CameraCon/Camera/deathboxBottom/Setting/ChineseCaption', 'CameraCon/Camera/deathboxBottom/Tutotail/ChineseCaption', 'CameraCon/Camera/deathboxBottom/LeaderBoard/ChineseCaption'];
       const size = cc.view.getVisibleSize();
       return paths.map(path => {
         const node = cc.find(path);
         let rect = node.getBoundingBoxToWorld();
         if (cc.Camera.main && cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
-        return { path, inside: rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= size.width && rect.y + rect.height <= size.height };
+        return { path, x: rect.x, y: rect.y, width: rect.width, height: rect.height, inside: rect.x >= 0 && rect.y >= 0 && rect.x + rect.width <= size.width && rect.y + rect.height <= size.height };
       });
     });
     assert.ok(bounds.every(b => b.inside), 'Title and bottom captions stay inside viewport: ' + JSON.stringify(bounds));
+    const [titleBounds, mascotBounds] = bounds;
+    assert.ok(mascotBounds.x + mascotBounds.width < titleBounds.x, 'Mascot stays left of the title without overlap');
+    assert.ok(Math.abs(mascotBounds.y + mascotBounds.height / 2 - titleBounds.y - titleBounds.height / 2) < 1, 'Mascot and title centers align');
     await page.screenshot({ path: path.join(out, `menu-${width}x${height}.png`) });
     for (const [link, expected] of [['AgePrompt', '8+ 适龄提示'], ['HealthPrompt', '健康游戏忠告']]) {
       await tapNode(host + 'ChineseSafetyLinks/' + link);
@@ -93,6 +97,9 @@ try {
   for (const platform of ['web', 'wechat']) {
     const bundle = fs.readFileSync(path.join(root, 'build', platform, 'src/project.js'), 'utf8');
     assert.ok(bundle.includes(release.shareTitle) && bundle.includes(release.displayName));
+    assert.ok(!bundle.includes('蜗牛向前冲软件'), 'Old display name does not remain in the game bundle');
+    const mascotFile = path.join(root, 'build', platform, platform === 'wechat' ? 'assets/brand' : 'brand', 'home-snail-rush.png');
+    assert.ok(fs.readFileSync(mascotFile).equals(fs.readFileSync(path.join(root, 'source/assets/resources/home-snail-rush.png'))), 'Both builds contain the approved standalone mascot');
   }
   checks.push({ name: 'Actual share call and both build identities match release configuration' });
 
@@ -134,6 +141,14 @@ try {
   assert.equal(await page.evaluate(p => cc.find(p).getComponent('LeaderBoardManager').ldArray.length, layer + 'Leaderboard'), 1);
   assert.equal(await page.evaluate(p => cc.find(p).active, layer + 'Leaderboard/RecordLoadingStatus'), false);
   checks.push({ name: 'Open record page automatically recovers when delayed resource completes' });
+  await page.evaluate(() => {
+    cc.find('Map').getComponent('UIManager').SubBackMM();
+    localStorage.setItem('TutorailFinished', 'true');
+    cc.find('Map').getComponent('GameLogic').startGame();
+  });
+  await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 1);
+  assert.equal(await page.evaluate(p => cc.find(p).activeInHierarchy, top + 'MMlogo/HomeSnailMascot'), false, 'Homepage mascot is hidden during gameplay');
+  checks.push({ name: 'Rushing mascot loads from local package, aligns with shortened title across five sizes, and stays off gameplay' });
   assert.deepEqual(errors, []);
 } catch (error) {
   errors.push(error.stack || error.message);

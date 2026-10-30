@@ -88,13 +88,34 @@ var Presentation = cc.Class({
         this.resourceStatus.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
         this.resourceStatus.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); if (resources.loadError) resources.retryResources(); });
         var title = this.hidePicture(top + 'MMlogo');
-        var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 880, 125, 82, 0, 40);
+        var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 580, 125, 82, 0, 40);
         this.heading = heading;
-        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height - 320); };
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2 + 120, size.height - 320); };
         heading.getComponent(cc.Label).isBold = true;
         var outline = heading.addComponent(cc.LabelOutline);
         outline.color = cc.color(25, 53, 82);
         outline.width = 4;
+        var mascot = new cc.Node('HomeSnailMascot');
+        title.addChild(mascot);
+        mascot.setContentSize(240, 160);
+        var mascotSprite = mascot.addComponent(cc.Sprite);
+        mascotSprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        this.mascot = mascot;
+        this.bindings.push({ node: mascot, target: title, x: 0, y: 0,
+            screen: function (size) { return cc.v2(size.width / 2 - 310, size.height - 320); } });
+        function loadedMascot(error, asset) {
+            if (error || !cc.isValid(mascot)) return;
+            mascotSprite.spriteFrame = asset instanceof cc.SpriteFrame ? asset : new cc.SpriteFrame(asset);
+            mascot.setContentSize(240, 160);
+            presentation._layoutWarmup = 3;
+        }
+        // Restored builds copy this resource into the local asset subpackage;
+        // Creator imports the same source PNG through its resources directory.
+        if (typeof window.__snailAssetRoot === 'string') {
+            cc.loader.load(window.__snailAssetRoot + 'brand/home-snail-rush.png', loadedMascot);
+        } else {
+            cc.loader.loadRes('home-snail-rush', cc.SpriteFrame, loadedMascot);
+        }
         this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height - 440); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
@@ -318,6 +339,7 @@ var Presentation = cc.Class({
         if (dirty) this.layoutGameOver(size);
         this.safety.active = state === 0;
         this.heading.active = state === 0;
+        this.mascot.active = state === 0;
         this.tagline.active = state === 0;
         if (this.gameOverStatus) this.gameOverStatus.active = state === 2;
         this.resourceStatus.active = this.ui.WaitBar.activeInHierarchy;
