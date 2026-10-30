@@ -1,0 +1,6 @@
+{
+  "collection": "snail_players",
+  "indexes": [
+    { "name": "ranking", "unique": false, "keys": [{ "name": "participating", "direction": "1" }, { "name": "hasScore", "direction": "1" }, { "name": "best", "direction": "-1" }, { "name": "_id", "direction": "1" }] }
+  ]
+}

@@ -1,0 +1,464 @@
+var release = require('ReleaseConfig');
+
+function text(parent, name, value, width, height, size, color) {
+    var node = new cc.Node(name);
+    parent.addChild(node);
+    node.setContentSize(width, height);
+    var label = node.addComponent(cc.Label);
+    label.useSystemFont = true;
+    label.fontFamily = 'Arial';
+    label.fontSize = size;
+    label.lineHeight = size + 12;
+    label.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+    label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+    label.overflow = cc.Label.Overflow.SHRINK;
+    label.string = value;
+    node.color = color || cc.Color.WHITE;
+    node.setContentSize(width, height);
+    return node;
+}
+
+// Old scene controls have different, sometimes very large parent scales. Keep
+// new text crisp and the same size in world space without changing hit areas.
+function place(node, target, offsetX, offsetY, screenPoint) {
+    var origin = target.convertToWorldSpaceAR(cc.v2(0, 0));
+    var axisX = target.convertToWorldSpaceAR(cc.v2(1, 0));
+    var axisY = target.convertToWorldSpaceAR(cc.v2(0, 1));
+    var sx = Math.max(0.0001, cc.pDistance(origin, axisX));
+    var sy = Math.max(0.0001, cc.pDistance(origin, axisY));
+    var point;
+    if (screenPoint) {
+        point = screenPoint;
+        if (cc.Camera.main && cc.Camera.main.containsNode(target)) {
+            point = cc.pointApplyAffineTransform(point, cc.affineTransformInvert(cc.Camera.main.viewMatrix));
+        }
+    } else {
+        point = target.convertToWorldSpaceAR(cc.v2((0.5 - target.anchorX) * target.width, (0.5 - target.anchorY) * target.height));
+        point = cc.v2(point.x + offsetX, point.y + offsetY);
+    }
+    node.setScale(1 / sx, 1 / sy);
+    node.setPosition(target.convertToNodeSpaceAR(point));
+}
+
+function moveToScreen(node, point) {
+    if (cc.Camera.main && cc.Camera.main.containsNode(node)) {
+        point = cc.pointApplyAffineTransform(point, cc.affineTransformInvert(cc.Camera.main.viewMatrix));
+    }
+    node.setPosition(node.parent.convertToNodeSpaceAR(point));
+}
+
+var Presentation = cc.Class({
+    extends: cc.Component,
+    onLoad: function () {
+        this.bindings = [];
+        this.ui = cc.find('Map').getComponent('UIManager');
+        this.mount();
+        this.pauseControl = require('PauseControl')(this.node);
+    },
+    bind: function (path, name, value, width, height, size, x, y, color) {
+        var target = typeof path === 'string' ? cc.find(path) : path;
+        if (!target) return null;
+        var node = text(target, name, typeof value === 'function' ? value() : value, width, height, size, color);
+        this.bindings.push({ node: node, target: target, x: x || 0, y: y || 0, value: value });
+        return node;
+    },
+    hidePicture: function (path, stopAnimation) {
+        var node = cc.find(path);
+        if (!node) return null;
+        var sprite = node.getComponent(cc.Sprite);
+        if (sprite) sprite.enabled = false;
+        if (stopAnimation) {
+            var animation = node.getComponent(cc.Animation);
+            if (animation) { animation.stop(); animation.enabled = false; }
+        }
+        return node;
+    },
+    mount: function () {
+        var presentation = this;
+        var ranking = require('CloudRanking');
+        var online = ranking.enabled();
+        var top = 'CameraCon/Camera/deathboxUp/';
+        var layer = 'CameraCon/Camera/UILayer/';
+        var bottom = 'CameraCon/Camera/deathboxBottom/';
+        var resources = cc.find('MapDataManager').getComponent('UtilManager');
+        this.resourceStatus = this.bind(this.node, 'ResourceStatus', function () {
+            return resources.loadError ? '关卡资源准备失败\n点此重试' : '正在准备关卡资源，请稍候…';
+        }, 850, 150, 38);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height * 0.35); };
+        this.resourceStatus.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
+        this.resourceStatus.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); if (resources.loadError) resources.retryResources(); });
+        var title = this.hidePicture(top + 'MMlogo');
+        var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 580, 125, 82, 0, 40);
+        this.heading = heading;
+        heading.zIndex = 20;
+        this.bindings[this.bindings.length - 1].screen = function () { return cc.v2(presentation.homeLayout.titleX, presentation.homeLayout.titleY); };
+        heading.getComponent(cc.Label).isBold = true;
+        var outline = heading.addComponent(cc.LabelOutline);
+        outline.color = cc.color(25, 53, 82);
+        outline.width = 6;
+        var mascot = new cc.Node('HomeSnailMascot');
+        title.addChild(mascot);
+        mascot.setContentSize(240, 160);
+        var mascotSprite = mascot.addComponent(cc.Sprite);
+        mascotSprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
+        this.mascot = mascot;
+        mascot.zIndex = 0;
+        this.bindings.push({ node: mascot, target: title, x: 0, y: 0,
+            screen: function () { return cc.v2(presentation.homeLayout.mascotX, presentation.homeLayout.mascotY); } });
+        function loadedMascot(error, asset) {
+            if (error || !cc.isValid(mascot)) return;
+            mascotSprite.spriteFrame = asset instanceof cc.SpriteFrame ? asset : new cc.SpriteFrame(asset);
+            presentation._layoutWarmup = 3;
+        }
+        // Restored builds copy this resource into the local asset subpackage;
+        // Creator imports the same source PNG through its resources directory.
+        if (typeof window.__snailAssetRoot === 'string') {
+            cc.loader.load(window.__snailAssetRoot + 'brand/home-snail-rush.png', loadedMascot);
+        } else {
+            cc.loader.loadRes('home-snail-rush', cc.SpriteFrame, loadedMascot);
+        }
+        this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
+        this.tagline.zIndex = 20;
+        var taglineOutline = this.tagline.addComponent(cc.LabelOutline);
+        taglineOutline.color = cc.color(25, 53, 82);
+        taglineOutline.width = 4;
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.taglineY); };
+        this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
+        this.startControl = cc.find(layer + 'startGame');
+        // A static menu button needs no per-frame inverse-scale text layout.
+        var startAnimation = this.startControl.getComponent(cc.Animation);
+        if (startAnimation) { startAnimation.stop(); startAnimation.enabled = false; }
+        this.startControl.setScale(0.9);
+
+        // The gameplay SCORE caption is baked into a sprite, not a Label.
+        // Keep its numeric child intact so ScoreManager continues updating it.
+        this.hidePicture(top + 'scoreName');
+        this.bind(top + 'scoreName', 'ChineseScoreCaption', '得分', 150, 80, 52);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(100, size.height - 110); };
+        var scoreValue = cc.find(top + 'scoreName/Score');
+        var scoreLabel = scoreValue.getComponent(cc.Label);
+        scoreLabel.fontSize = 52;
+        scoreLabel.lineHeight = 64;
+        scoreLabel.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+        scoreLabel.verticalAlign = cc.Label.VerticalAlign.CENTER;
+        scoreLabel.overflow = cc.Label.Overflow.SHRINK;
+        scoreValue.setAnchorPoint(0.5, 0.5);
+        scoreValue.setContentSize(200, 80);
+        this.bindings.push({ node: scoreValue, target: cc.find(top + 'scoreName'), x: 0, y: 0,
+            screen: function (size) { return cc.v2(285, size.height - 110); } });
+
+        var score = cc.find('Map').getComponent('ScoreManager');
+        var bestPaths = [layer + 'Top/TopScoreLable/best', layer + 'OverGame/Top/TopScoreLable/best'];
+        for (var i = 0; i < bestPaths.length; i++) {
+            this.hidePicture(bestPaths[i]);
+            this.bind(bestPaths[i], 'ChineseBest', i === 1 ? function () { return score._lsNewRecord ? '个人新纪录' : '个人纪录'; } : online ? '全服最高' : '个人纪录', 220, 80, 36);
+            if (i === 0) this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.43, presentation.homeLayout.bestY); };
+            else this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.bestCaption; };
+        }
+        var mainScore = cc.find(layer + 'Top/score');
+        mainScore.getComponent(cc.Label).enabled = false;
+        this.bind(mainScore, 'ChineseBestValue', function () {
+            if (!online) return String(score.GetTopScore());
+            var snapshot = ranking.state();
+            return snapshot.status === 'ready' && snapshot.data && snapshot.data.highest !== null ? String(snapshot.data.highest) : '—';
+        }, 160, 80, 48, 0, 0, cc.color(255, 110, 95));
+        this.bindings[this.bindings.length - 1].onEnterOnly = true;
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.64, presentation.homeLayout.bestY); };
+        var tutorial = cc.find(bottom + 'Tutotail/TutorialFont');
+        if (tutorial) tutorial.active = false;
+        this.bind(bottom + 'Setting', 'ChineseCaption', '设置', 200, 55, 34, 0, -110);
+        this.bind(bottom + 'Tutotail', 'ChineseCaption', '玩法', 200, 55, 34, 0, -110);
+        this.bind(bottom + 'LeaderBoard', 'ChineseCaption', online ? '全服排名' : '本机纪录', 220, 55, 34, 0, -110);
+        this.bind(layer + 'startGame', 'ChineseCaption', '开始游戏', 330, 65, 42, 0, -225);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.startY - presentation.homeLayout.startCaptionGap); };
+
+        var again = this.hidePicture(layer + 'OverGame/AgainButton', true);
+        this.again = again;
+        var background = new cc.Node('ChineseContinueBackground');
+        again.addChild(background);
+        background.zIndex = -1;
+        var graphics = background.addComponent(cc.Graphics);
+        graphics.fillColor = cc.color(25, 125, 85);
+        graphics.roundRect(-170, -90, 340, 180, 24);
+        graphics.fill();
+        this.bindings.push({ node: background, target: again, x: 0, y: 0 });
+        // Draw the video icon locally: emoji rendering differs between devices.
+        var video = new cc.Node('ReviveVideoIcon');
+        again.addChild(video);
+        var icon = video.addComponent(cc.Graphics);
+        icon.strokeColor = cc.Color.WHITE;
+        icon.fillColor = cc.Color.WHITE;
+        icon.lineWidth = 3;
+        icon.roundRect(-20, -17, 40, 34, 5);
+        icon.stroke();
+        icon.moveTo(-5, -9); icon.lineTo(10, 0); icon.lineTo(-5, 9); icon.close(); icon.fill();
+        this.bindings.push({ node: video, target: again, x: -110, y: 35 });
+        this.bind(again, 'ChineseContinue', '看广告复活', 220, 65, 38, 25, 35);
+        var timer = cc.find(layer + 'OverGame/AgainButton/Time').getComponent(cc.Label);
+        timer.enabled = false;
+        this.bind(again, 'ChineseCountdown', function () { return '剩余 ' + timer.string + ' 秒'; }, 260, 55, 30, 0, -35, cc.color(216, 244, 225));
+
+        this.reviveNotice = new cc.Node('ChineseReviveNotice');
+        this.node.addChild(this.reviveNotice);
+        this.reviveNotice.setContentSize(800, 150);
+        this.bindings.push({ node: this.reviveNotice, target: this.node, x: 0, y: 0, screen: function (size) { return cc.v2(size.width / 2, size.height * 0.72); } });
+        this.reviveNotice.zIndex = 32767;
+        var noticeBackground = new cc.Node('Background');
+        this.reviveNotice.addChild(noticeBackground);
+        var noticeShade = noticeBackground.addComponent(cc.Graphics);
+        noticeShade.fillColor = cc.color(15, 38, 55, 235);
+        noticeShade.roundRect(-400, -75, 800, 150, 20);
+        noticeShade.fill();
+        text(this.reviveNotice, 'Message', '本次免广告\n已为您满血复活！', 800, 150, 42);
+        this.reviveNotice.active = false;
+        this.hidePicture(layer + 'OverGame/TapToRestart', true);
+        this.bind(layer + 'OverGame/TapToRestart', 'ChineseRestart', '点击空白处重新开始', 570, 100, 38);
+        this.hidePicture(layer + 'OverGame/Top/newrecord');
+        this.bind(layer + 'OverGame/Top/Share', 'ChineseCaption', '分享', 190, 55, 32, 0, -95);
+        if (online) {
+            this.gameOverStatus = this.bind(layer + 'OverGame', 'GlobalScoreStatus', function () { return ranking.submission(); }, 900, 60, 30);
+            this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.status; };
+            this.gameOverStatus.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
+            this.gameOverStatus.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); ranking.retryScore(); });
+        }
+
+        this.safety = new cc.Node('ChineseSafetyLinks');
+        this.node.addChild(this.safety);
+        var age = this.bind(this.safety, 'AgePrompt', release.age + '+ 适龄提示', 245, 65, 36, 0, 0, cc.color(219, 248, 228));
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(145, size.height - 120); };
+        var health = this.bind(this.safety, 'HealthPrompt', '健康游戏提示', 310, 65, 34, 0, 0, cc.color(219, 239, 249));
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(455, size.height - 120); };
+        var self = this;
+        age.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); self.showNotice('age'); });
+        health.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); self.showNotice('health'); });
+        if (online) {
+            this._unsubscribeRanking = ranking.subscribe(function () { self._layoutWarmup = 3; });
+            ranking.refresh(0);
+        }
+        this.layoutTutorialItems();
+        this.lateUpdate();
+    },
+    onDestroy: function () { if (this._unsubscribeRanking) this._unsubscribeRanking(); },
+    layoutTutorialItems: function () {
+        var page = cc.find('CameraCon/Camera/UILayer/tut/view/content/page_5');
+        if (!page) return;
+        var rows = [
+            { icon: 'bonus', caption: 'Heal HP', y: 120 },
+            { icon: 'enemy', caption: 'Damage HP', y: 0 },
+            { icon: 'monsterBig', caption: 'Oni Kill', y: -120 }
+        ];
+        rows.forEach(function (row) {
+            var icon = page.getChildByName(row.icon);
+            var caption = page.getChildByName(row.caption) || icon.getChildByName(row.caption);
+            // Captions must not inherit the legacy icon's size or scaling.
+            caption.parent = page;
+            caption.setScale(1);
+            caption.setAnchorPoint(0, 0.5);
+            caption.setPosition(-page.width / 2 + 135, row.y);
+            var label = caption.getComponent(cc.Label);
+            label.fontSize = 28;
+            label.lineHeight = 36;
+            label.horizontalAlign = cc.Label.HorizontalAlign.LEFT;
+            label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            caption.setContentSize(page.width - 160, 64);
+            var scale = Math.min(78 / icon.width, 90 / icon.height);
+            icon.setScale(scale);
+            icon.setPosition(-page.width / 2 + 30 + icon.width * scale / 2, row.y);
+            var number = icon.getChildByName('numb');
+            if (number) {
+                var digit = number.getComponent(cc.Label);
+                digit.string = digit.string.trim();
+                digit.fontSize = row.icon === 'bonus' ? 18 : 22;
+                digit.lineHeight = digit.fontSize + 6;
+                digit.overflow = cc.Label.Overflow.SHRINK;
+                number.setAnchorPoint(0.5, 0.5);
+                number.setPosition(0, row.icon === 'bonus' ? 0 : -48);
+                number.setContentSize(row.icon === 'bonus' ? 34 : 27, 34);
+            }
+        });
+    },
+    layoutGameOver: function (size) {
+        var pixel = size.height / (cc.view.getFrameSize().height || size.height);
+        var top = 0, bottom = 0;
+        try {
+            if (typeof wx !== 'undefined') {
+                var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+                if (info && info.windowHeight) pixel = size.height / info.windowHeight;
+                if (info && info.safeArea) {
+                    top = Math.max(0, info.safeArea.top || 0) * pixel;
+                    if (info.windowHeight && typeof info.safeArea.bottom === 'number') bottom = Math.max(0, info.windowHeight - info.safeArea.bottom) * pixel;
+                }
+                var capsule = wx.getMenuButtonBoundingClientRect && wx.getMenuButtonBoundingClientRect();
+                if (capsule && typeof capsule.bottom === 'number') top = Math.max(top, capsule.bottom * pixel);
+            }
+        } catch (_) { /* Use viewport-based margins when native metrics are absent. */ }
+        var low = bottom + Math.max(60, 16 * pixel);
+        var high = size.height - Math.max(220, top + 30 * pixel);
+        var span = high - low;
+        var center = size.width / 2;
+        var bestY = low + span * 0.65;
+        this.overGameLayout = {
+            bestCaption: cc.v2(center - 145, bestY),
+            status: cc.v2(center, low)
+        };
+        function position(path, point, width, height) {
+            var node = cc.find(path);
+            var widget = node.getComponent(cc.Widget);
+            if (widget) widget.enabled = false;
+            var button = node.getComponent(cc.Button);
+            if (button) button.transition = cc.Button.Transition.NONE;
+            node.setAnchorPoint(0.5, 0.5);
+            node.setContentSize(width, height);
+            place(node, node.parent, 0, 0, point);
+            return node;
+        }
+        function scoreLabel(path, point, width, height, fontSize) {
+            var node = position(path, point, width, height);
+            var label = node.getComponent(cc.Label);
+            label.useSystemFont = true;
+            label.fontFamily = 'Arial';
+            label.fontSize = fontSize;
+            label.lineHeight = fontSize + 12;
+            label.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+            label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            node.setContentSize(width, height);
+        }
+        var gameOver = 'CameraCon/Camera/UILayer/OverGame/';
+        scoreLabel(gameOver + 'Top/Score', cc.v2(center, low + span * 0.90), 500, 100, 80);
+        scoreLabel(gameOver + 'CurrentScore', cc.v2(center, low + span * 0.77), size.width - 100, 110, 84);
+        scoreLabel(gameOver + 'Top/score', cc.v2(center + 130, bestY), 260, 80, 48);
+        position(gameOver + 'AgainButton', cc.v2(center, low + span * 0.48), 340, 180);
+        position(gameOver + 'TapToRestart', cc.v2(center, low + span * 0.32), 650, 100);
+        position(gameOver + 'Top/Share', cc.v2(center, low + span * 0.17), Math.max(130, 44 * pixel), Math.max(130, 44 * pixel));
+        var backSize = Math.max(100, 44 * pixel);
+        position('CameraCon/Camera/deathboxUp/BackMM', cc.v2(Math.max(backSize / 2 + 24, 35 * pixel), size.height - Math.max(65 * pixel, top + 30 * pixel)), backSize, backSize);
+    },
+    showReviveNotice: function () {
+        // Non-modal: grant immediately without waiting for network or a dialog.
+        this.reviveNotice.active = true;
+        var self = this;
+        this.scheduleOnce(function () { self.reviveNotice.active = false; }, 2);
+    },
+    showNotice: function (kind) {
+        if (this.notice) return;
+        var size = cc.view.getVisibleSize();
+        var panel = new cc.Node('ChineseSafetyNotice');
+        var camera = cc.find('CameraCon/Camera');
+        camera.addChild(panel);
+        panel.zIndex = 32767;
+        panel.setContentSize(size.width, size.height);
+        place(panel, camera, 0, 0, cc.v2(size.width / 2, size.height / 2));
+        var backdrop = new cc.Node('Backdrop');
+        panel.addChild(backdrop);
+        backdrop.setAnchorPoint(0, 0);
+        var shade = backdrop.addComponent(cc.Graphics);
+        shade.fillColor = cc.color(5, 15, 28, 245);
+        shade.rect(-size.width / 2, -size.height / 2, size.width, size.height);
+        shade.fill();
+        panel.on(cc.Node.EventType.TOUCH_START, function (event) { event.stopPropagation(); });
+        panel.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); });
+        var width = Math.min(840, size.width - 100);
+        var title = text(panel, 'NoticeTitle', kind === 'age' ? release.age + '+ 适龄提示' : '健康游戏忠告', width, 95, 52);
+        title.y = 260;
+        var message = kind === 'age'
+            ? '本游戏为单人休闲跳跃游戏\n适合 ' + release.age + ' 周岁及以上用户\n建议未成年人在监护人指导下使用\n\n点击屏幕，在旋转圆盘之间跳跃\n收集道具、避开障碍，挑战本机纪录\n无充值、无广告、无陌生人聊天\n\n合理安排时间，享受健康生活'
+            : '抵制不良游戏，拒绝盗版游戏。\n注意自我保护，谨防受骗上当。\n适度游戏益脑，沉迷游戏伤身。\n合理安排时间，享受健康生活。';
+        var body = text(panel, 'NoticeBody', message, width, 520, 34);
+        body.y = -15;
+        var close = text(panel, 'NoticeClose', '我知道了', 460, 100, 42, cc.color(120, 235, 180));
+        close.y = -380;
+        var self = this;
+        close.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); panel.destroy(); self.notice = null; });
+        this.notice = panel;
+    },
+    layoutHome: function (size) {
+        var unit = size.width / 960;
+        var compact = size.height / size.width < 1.6;
+        // The screenshot used the original 240x160 mascot. Scale both axes
+        // exactly 3x at the same screen width, behind the centered lettering.
+        var width = 720 * unit;
+        var mascotY = size.height - Math.max(320 * unit, size.height * 0.14);
+        var titleY = mascotY - 180 * unit;
+        try {
+            if (typeof wx !== 'undefined' && wx.getMenuButtonBoundingClientRect) {
+                var capsule = wx.getMenuButtonBoundingClientRect();
+                var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+                var pixel = size.height / (info && info.windowHeight || cc.view.getFrameSize().height || size.height);
+                if (capsule && capsule.bottom > 0) titleY = Math.min(titleY, size.height - (capsule.bottom + 12) * pixel - 62.5 * unit);
+            }
+        } catch (_) { /* The responsive header remains usable without native metrics. */ }
+        var taglineY = titleY - 120 * unit;
+        var bestY = compact ? size.height - 705 * unit : size.height * 0.58;
+        // Align the opaque foot, not the transparent canvas edge, with the
+        // title's outlined glyph bottom (37 units below its visual center).
+        // The unchanged PNG's main opaque silhouette ends at row 914/1024.
+        var footFromCenter = (914 / 1024 - 0.5) * (width * 2 / 3);
+        mascotY = titleY - 37 * unit + footFromCenter;
+        this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
+            // Align the visible snail body to the marked 13%-59% band.
+            // The PNG also includes transparent padding and trailing streaks.
+            mascotX: size.width * 0.2875, mascotY: mascotY, titleX: size.width / 2,
+            startY: compact ? size.height - 865 * unit : size.height * 0.43,
+            startCaptionGap: (compact ? 160 : 225) * unit, menuY: (compact ? 150 : 200) * unit };
+        var label = this.heading.getComponent(cc.Label);
+        label.fontSize = 82 * unit;
+        label.lineHeight = 94 * unit;
+        this.heading.setContentSize(size.width * 0.88, 125 * unit);
+        this.mascot.setContentSize(width, width * 2 / 3);
+        this.tagline.setContentSize(size.width * 0.90, 65 * unit);
+        this.startControl.setScale(compact ? 0.55 * unit : 0.9 * unit);
+    },
+    lateUpdate: function () {
+        if (!this.bindings) return;
+        var size = cc.view.getVisibleSize();
+        var state = this.ui._CurrentState;
+        if (this._layoutWidth !== size.width || this._layoutHeight !== size.height || this._layoutState !== state) this._layoutWarmup = 3;
+        // The legacy camera positions its top/bottom anchors in start(). Let
+        // those transforms settle for two frames after a scene/state/size change.
+        var dirty = this._layoutWarmup > 0;
+        if (dirty) this._layoutWarmup--;
+        if (dirty) { this.layoutGameOver(size); this.layoutHome(size); }
+        this.safety.active = state === 0;
+        this.heading.active = state === 0;
+        this.mascot.active = state === 0;
+        this.tagline.active = state === 0;
+        if (this.gameOverStatus) this.gameOverStatus.active = state === 2;
+        this.resourceStatus.active = this.ui.WaitBar.activeInHierarchy;
+        if (dirty && state === 0) {
+            for (var control = 0; control < this.menuControls.length; control++) {
+                moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), this.homeLayout.menuY));
+            }
+            moveToScreen(this.startControl, cc.v2(size.width / 2, this.homeLayout.startY));
+        }
+        for (var i = 0; i < this.bindings.length; i++) {
+            var binding = this.bindings[i];
+            if (!cc.isValid(binding.node) || !cc.isValid(binding.target)) continue;
+            var visible = binding.node.activeInHierarchy;
+            if (visible && (dirty || !binding.visible)) {
+                place(binding.node, binding.target, binding.x, binding.y, binding.screen ? binding.screen(size) : null);
+            }
+            if (visible && typeof binding.value === 'function' && (!binding.onEnterOnly || dirty || !binding.visible)) {
+                var value = binding.value();
+                var label = binding.node.getComponent(cc.Label);
+                if (label.string !== value) label.string = value;
+            }
+            binding.visible = visible;
+        }
+        this._layoutWidth = size.width;
+        this._layoutHeight = size.height;
+        this._layoutState = state;
+    }
+});
+
+module.exports = function () {
+    var parent = cc.find('CameraCon/Camera/UILayer');
+    var host = parent.getChildByName('ReleasePresentation');
+    if (!host) {
+        host = new cc.Node('ReleasePresentation');
+        parent.addChild(host);
+        host.addComponent(Presentation);
+    }
+    return host.getComponent(Presentation);
+};

@@ -11,13 +11,15 @@ var translations = {
     'Tap to Jump\nSnail leap forward on circle': '点击屏幕起跳\n把握时机，沿圆的切线飞出',
     'From Circle to Cirecle': '从一个圆跳向下一个圆',
     'HP  in the center\nGame over when Hp is 0': '圆心显示生命值\n生命值为 0 时游戏结束',
-    'Damage HP': '碰到障碍会损失生命',
-    'Heal HP': '收集道具恢复生命',
-    'Oni Kill': '击中怪物',
+    'Damage HP': '碰到障碍会损失生命值',
+    'Heal HP': '收集道具恢复生命值',
+    'Oni Kill': '击中怪物，游戏失败',
     'Hat spring': '利用弹簧起跳'
 };
 
 module.exports = function () {
+    var release = require('ReleaseConfig');
+    if (require('CloudRanking').enabled()) translations.LeaderBoard = '全服排行榜';
     require('ScreenLayout')();
     var scene = cc.director.getScene();
     scene.getComponentsInChildren(cc.Label).forEach(function (label) {
@@ -27,7 +29,15 @@ module.exports = function () {
             label.fontFamily = 'Arial';
             label.string = replacement;
         }
-        if (label.node.name === 'version') label.string = 'v1.1.3';
+        if (label.node.name === 'version') {
+            label.useSystemFont = true;
+            label.fontFamily = 'Arial';
+            label.fontSize = 24;
+            label.lineHeight = 34;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            label.node.setContentSize(440, 95);
+            label.string = release.displayName + '\n版本 ' + release.version;
+        }
     });
     var score = cc.find('Map').getComponent('ScoreManager');
     score.Str_DoubleJump = '二连跳';
@@ -35,4 +45,5 @@ module.exports = function () {
     score.Str_QuadrupleJump = '四连跳';
     score.Str_SurperJump = '超级跳跃';
     score.Str_FullCircle = '绕圆完成';
+    require('ReleasePresentation')();
 };

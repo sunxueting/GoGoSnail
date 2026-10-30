@@ -1,244 +1,112 @@
-// Learn cc.Class:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/class.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/class.html
-// Learn Attribute:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/reference/attributes.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/reference/attributes.html
-// Learn life-cycle callbacks:
-//  - [Chinese] http://docs.cocos.com/creator/manual/zh/scripting/life-cycle-callbacks.html
-//  - [English] http://www.cocos2d-x.org/docs/creator/en/scripting/life-cycle-callbacks.html
 var ScoreManager = require('ScoreManager');
-
-
-window.BgConfig = {
-    ScoreBelow: 0,
-    BgFrame : 1,
-            
-    PatternFrame : 2,
-
-   
-}
+window.BgConfig = { ScoreBelow: 0, BgFrame: 1, PatternFrame: 2 };
 var BgChangeInstance = cc.Class({
     extends: cc.Component,
-
-    statics: {
-        _instance : null
-    },
-
+    statics: { _instance: null },
     properties: {
-        AScoreBelow :[],
-        AFrameBg:[],
-        AFramePattern:[],
-
-        AllBg :[],
-        AllPatter:[],
-
-        _CurrentLV :0,
-
-        _loadFinished :false,
-
-        fadeInDt :
-        {
-          default :1,
-        },
-
-        fadetran :
-        {
-            default : 0.5,
-        },
-        fadeOutDt :
-        {
-          default :1,
-        }
+        AScoreBelow: [], AFrameBg: [], AFramePattern: [], AllBg: [], AllPatter: [],
+        _CurrentLV: 0, _loadFinished: false, fadeInDt: 1, fadetran: 0.5, fadeOutDt: 1
     },
-
-    getBGFrameByName:function(fname)
-    {
-      //  console.log("getFrameByName" +fname);
-        for(var i=0; i< this.AllBg.length ;i++){
-            var tmpname = this.AllBg[i].name;
-        //     cc.log("this.AllBg " +tmpname)
-            // cc.String.cont
-            if( tmpname == fname )
-               return this.AllBg[i];
-        }
-     //   console.log("can't get frame of "+fname);
-        return null; 
-     },
-
-     getPatFrameByName:function(fname)
-     {
-         console.log("getFrameByName" +fname);
-         for(var i=0; i< this.AllPatter.length ;i++){
-             var tmpname = this.AllPatter[i].name;
-        //      cc.log("this.AllPatter " +tmpname)
-             // cc.String.cont
-             if( tmpname == fname )
-                return this.AllPatter[i];
-         }
-
-
-         console.log("can't get frame of "+fname);
-         return null;
-      },
-
-    // LIFE-CYCLE CALLBACKS:
-
-     onLoad () {
-         BgChangeInstance._instance = this;
-         this.CanvasBg = cc.find('Canvas/bg');
-        // cc.game.addPersistRootNode(this.node);
-         cc.loader.loadResDir('Texture/BG',cc.SpriteFrame,function (err, assets) {
-
-            if (err) {
-                cc.error(err.message || err);
+    getBGFrameByName: function (name) {
+        return this.AllBg.filter(function (frame) { return frame.name === name; })[0] || null;
+    },
+    getPatFrameByName: function (name) {
+        return this.AllPatter.filter(function (frame) { return frame.name === name; })[0] || null;
+    },
+    onLoad: function () {
+        BgChangeInstance._instance = this;
+        this.CanvasBg = cc.find('Canvas/bg');
+        this.CanvasBg.stopAllActions();
+        this.CanvasBg.opacity = 255;
+        this._loaded = {};
+        this._CurrentLV = 0;
+        this._loadFinished = false;
+        this.loadFrames('Texture/BG', 'AllBg', 'background');
+        this.loadFrames('Texture/Pattern', 'AllPatter', 'pattern');
+        this.LoadBgConfig();
+    },
+    loaded: function (key) {
+        this._loaded[key] = true;
+        this._loadFinished = !!(this._loaded.background && this._loaded.pattern && this._loaded.config);
+    },
+    loadFrames: function (dir, property, key, attempt) {
+        var self = this;
+        cc.loader.loadResDir(dir, cc.SpriteFrame, function (error, frames) {
+            if (error || !frames || (key === 'background' && !frames.length)) {
+                if ((attempt || 0) < 2) self.scheduleOnce(function () { self.loadFrames(dir, property, key, (attempt || 0) + 1); }, 0.5);
+                return; // Keep the shipped opaque background if loading fails.
+            }
+            self[property] = frames;
+            self.loaded(key);
+        });
+    },
+    LoadBgConfig: function (attempt) {
+        var self = this;
+        cc.loader.loadRes('LevelConfig/BGConfig', function (error, value) {
+            var csv = typeof value === 'string' ? value : value && value.text;
+            if (error || !csv) {
+                if ((attempt || 0) < 2) self.scheduleOnce(function () { self.LoadBgConfig((attempt || 0) + 1); }, 0.5);
                 return;
             }
-            for(var i=0; i< assets.length ; i++){
-                cc.log("asset = "+ i+ assets[i].name);
-               // this.AllBg[i] = assets[i];
-            }
-
-           this.AllBg = assets;
-
-          
-          
-
-
-        }.bind(this));
-
-
-        cc.loader.loadResDir('Texture/Pattern',cc.SpriteFrame,function (err, assets) {
-
-            if (err) {
-                cc.error(err.message || err);
-                return;
-            }
-
-           this.AllPatter = assets;
-
-          this._loadFinished = true;
-         
-        
-        }.bind(this));
-
-         this.LoadBgConfig();
-        
-     },
-
-
-     LoadBgConfig :function()
-     {
-        cc.loader.loadRes("LevelConfig/BGConfig", function (err, bgCsv) {
-            //          cc.log("MapDataManager._instance"+MapDataManager._instance);
-          
-                  var bgArr = bgCsv.split("\n");        
-                      for(var i = 1; i< bgArr.length;i++){
-                          if(bgArr[i] !=""){
-                          var arr = bgArr[i].split(',')
-                   //       cc.log("arr"+arr+"len ="+arr.length);
-                         
-                          var kk = i-1;
-                   //       cc.log("kkkk = "+kk);
-                        //  var tmp = arr.split(',')
-                          for(var j = 0 ; j< arr.length ; j++){
-                            switch (j) {
-                                case BgConfig.ScoreBelow:
-                                this.AScoreBelow[kk] = arr[j];
-                                    break;
-        
-                                case BgConfig.BgFrame:
-                                this.AFrameBg[kk] = arr[j];
-                                   break;  
-        
-                                case BgConfig.PatternFrame:
-                                this.AFramePattern[kk] = arr[j];
-                                  break;    
-        
-                                default:
-                                    break;
-                          }
-                        }
-                    }
-                }
-                
- /*               cc.log(" this.AScoreBelow.length ="+this.AScoreBelow.length);
-                for(var i = 0; i < this.AScoreBelow.length ;i++){
-                    cc.log("score "+i +"= "+this.AScoreBelow[i]);
-                }
-    
-                
-                for(var i = 0; i < this.AFrameBg.length ;i++){
-                    cc.log("bg frame "+i +"= "+this.AFrameBg[i]);
-                }
-    
-                
-                for(var i = 0; i < this.AFramePattern.length ;i++){
-                    cc.log("pattern "+i +"= "+this.AFramePattern[i]);
-                }
-*/
-                    
-            }.bind(this));
-
-            
-                             
-     },
-    start () {
-     
+            self.AScoreBelow = []; self.AFrameBg = []; self.AFramePattern = [];
+            csv.trim().split(/\r?\n/).slice(1).forEach(function (line) {
+                var cells = line.split(',').map(function (cell) { return cell.trim(); });
+                if (cells.length < 2 || !cells[1] || !isFinite(Number(cells[0]))) return;
+                self.AScoreBelow.push(Number(cells[0]));
+                self.AFrameBg.push(cells[1]);
+                self.AFramePattern.push(cells[2] || '');
+            });
+            self.loaded('config');
+        });
     },
-    UpdateBg:function(_num){
-         
-        this.BgFadeOut();
-        
-        this.scheduleOnce(this.BgFadeIn.bind(this), this.fadetran);
-
-
+    fitTransition: function () {
+        if (!this.transition || !this.transition.active) return;
+        var size = cc.view.getVisibleSize();
+        if (size.width === this._width && size.height === this._height) return;
+        var frame = this.transition.getComponent(cc.Sprite).spriteFrame;
+        var original = frame.getOriginalSize();
+        var scale = Math.max(size.width / original.width, size.height / original.height);
+        this.transition.setContentSize(original.width * scale, original.height * scale);
+        this.transition.setPosition(0, 0);
+        this._width = size.width; this._height = size.height;
     },
-
-
-    checkscoreBg:function()
-    {
-        if(this._loadFinished){
-        var score = ScoreManager._instance.PlayerScore;
-        var lv = this._CurrentLV;
-      //  cc.log('score ='+score+" lv ="+lv);
-
-  
-  
- //       for(var i = 0; i < this.AScoreBelow.length ;i++){
-  //          cc.log("score "+i +"= "+this.AScoreBelow[i]);
- //       }
-
-        if(lv < this.AScoreBelow.length){
-             
-             if(score >=this.AScoreBelow[lv]){
-                 this.UpdateBg(lv);
-                 this._CurrentLV++;
-                 cc.log("up to level "+ this._CurrentLV);
-             }
+    UpdateBg: function (index) {
+        var frame = this.getBGFrameByName(this.AFrameBg[index]);
+        if (!frame) return false; // Never replace a usable frame with null.
+        var patternName = this.AFramePattern[index];
+        var pattern = patternName ? this.getPatFrameByName(patternName) : null;
+        if (patternName && !pattern) return false;
+        if (!this.transition) {
+            this.transition = new cc.Node('BackgroundCrossfade');
+            this.CanvasBg.addChild(this.transition);
+            this.transition.addComponent(cc.Sprite).sizeMode = cc.Sprite.SizeMode.CUSTOM;
         }
-    }
+        this.transition.stopAllActions();
+        this.CanvasBg.stopAllActions();
+        this.CanvasBg.opacity = 255;
+        this.transition.active = true;
+        this.transition.opacity = 0;
+        this.transition.getComponent(cc.Sprite).spriteFrame = frame;
+        this._width = this._height = 0;
+        this.fitTransition();
+        var generation = this._generation = (this._generation || 0) + 1;
+        var self = this;
+        this.transition.runAction(cc.sequence(cc.fadeIn(Math.max(0.1, this.fadeInDt)), cc.callFunc(function () {
+            if (self._generation !== generation) return;
+            self.CanvasBg.getComponent(cc.Sprite).spriteFrame = frame;
+            var node = self.CanvasBg.getChildByName('pat');
+            node.getComponent(cc.Sprite).spriteFrame = pattern;
+            node.active = !!pattern;
+            require('ScreenLayout')();
+            self.transition.active = false;
+        })));
+        return true;
     },
-    BgFadeOut:function()
-    {
-        var fadeoutA = cc.fadeOut(this.fadeOutDt);
-        this.CanvasBg.runAction(fadeoutA);
+    checkscoreBg: function () {
+        if (!this._loadFinished) return;
+        var score = ScoreManager._instance.PlayerScore, index = -1;
+        for (var i = 0; i < this.AScoreBelow.length; i++) if (score >= this.AScoreBelow[i]) index = i;
+        if (index >= this._CurrentLV && this.UpdateBg(index)) this._CurrentLV = index + 1;
     },
-
-    BgFadeIn:function()
-    {
-        var _num = this._CurrentLV-1;
-        var bgName = this.AFrameBg[_num];
-        var patternName = this.AFramePattern[_num].toString();
-        
-        this.CanvasBg.getChildByName('pat').getComponent(cc.Sprite).spriteFrame = this.getPatFrameByName(patternName);
-        this.CanvasBg.getComponent(cc.Sprite).spriteFrame = this.getBGFrameByName(bgName);
-       
-
-        var fadeinA = cc.fadeIn(this.fadeInDt);
-        this.CanvasBg.runAction(fadeinA);
-    },
-     lateUpdate (dt) {
-        this.checkscoreBg();
-     },
+    lateUpdate: function () { this.checkscoreBg(); this.fitTransition(); }
 });

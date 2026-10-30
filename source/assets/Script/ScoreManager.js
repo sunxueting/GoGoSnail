@@ -107,6 +107,7 @@ var ScoreManager = cc.Class({
         var score = Math.max(0, Math.floor(Number(this.PlayerScore) || 0));
         this._lsNewRecord = score > this.GetTopScore();
         if (this._lsNewRecord) cc.sys.localStorage.setItem('TopScore', String(score));
+        require('CloudRanking').submit(score);
     },
     GetTopScore()
     {

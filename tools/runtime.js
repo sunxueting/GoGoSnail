@@ -36,6 +36,7 @@
       cc.view.setOrientation(cc.macro.ORIENTATION_PORTRAIT);
       cc.view.enableAutoFullScreen(false);
       var prefix = isWechat ? 'assets/' : '';
+      window.__snailAssetRoot = prefix;
       cc.AssetLibrary.init({ libraryPath: prefix + 'res/import', rawAssetsBase: prefix + 'res/raw-', rawAssets: settings.rawAssets, packedAssets: settings.packedAssets, md5AssetsMap: settings.md5AssetsMap });
       cc.director.loadScene(settings.launchScene, function (err) {
         if (err) { console.error('Game scene failed', err); return; }

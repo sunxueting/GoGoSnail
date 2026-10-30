@@ -88,6 +88,8 @@ var GameLogic =cc.Class({
     },
     GamePlayStart:function()
     {
+        this.uIManager.reviveOffer.beginRun();
+        require('CloudRanking').beginRun();
         var playercon = GameLogic._instance.PlC;
     //    cc.log('this.PIC'+ playercon);
        // this.Cam.ResetMoveSpeed();
@@ -125,16 +127,18 @@ var GameLogic =cc.Class({
     },
      CheckContinueGame:function()
      {
-        if (FacebookInstant._instance.MoreLiftCount > 0) this.ContinueGame();
+        // The delivered scene's AgainButton is serialized to this handler.
+        return this.uIManager.ClaimRevive();
      },
      ContinueGame: function()
      {
-        if (FacebookInstant._instance.MoreLiftCount <= 0 || !this.PlC.missionContinue()) return;
+        if (FacebookInstant._instance.MoreLiftCount <= 0 || !this.PlC.missionContinue()) return false;
         FacebookInstant._instance.MoreLiftCount=0;
     //      cc.log("continue");
         GameLogic._instance.uIManager.continueGame();
         LeaderBoardManager._instance.active = false;
        this.audioManager.resume();
+        return true;
         
      },
     

@@ -170,10 +170,59 @@ var LeaderBoardManager = cc.Class({
      ClearLeaderboard:function()
      {
         if (this._profile) this._profile.hide();
+        this._pendingEntries = null;
+        this.setRecordStatus('');
         this.ViewContent.destroyAllChildren();
+     },
+     setRecordStatus:function(message)
+     {
+        var status = this.node.getChildByName('RecordLoadingStatus');
+        if (!status && message) {
+            status = new cc.Node('RecordLoadingStatus');
+            this.node.addChild(status);
+            status.setPosition(0, -330);
+            status.setContentSize(440, 180);
+            var label = status.addComponent(cc.Label);
+            label.useSystemFont = true;
+            label.fontFamily = 'Arial';
+            label.fontSize = 28;
+            label.lineHeight = 42;
+            label.horizontalAlign = cc.Label.HorizontalAlign.CENTER;
+            label.verticalAlign = cc.Label.VerticalAlign.CENTER;
+            label.overflow = cc.Label.Overflow.SHRINK;
+            status.setContentSize(440, 180);
+            var self = this;
+            status.on(cc.Node.EventType.TOUCH_END, function (event) {
+                event.stopPropagation();
+                if (!self._pendingEntries || self._retryingRecord) return;
+                self._retryingRecord = true;
+                self._recordWait = 0;
+                self.setRecordStatus('正在重新准备本机纪录…');
+                cc.loader.loadRes('Prefab/ItemEntry', function (err, prefab) {
+                    if (!cc.isValid(self.node)) return;
+                    self._retryingRecord = false;
+                    if (!err && prefab) self.utilManager._LdEntry = prefab;
+                    else if (self._pendingEntries) self.setRecordStatus('本机纪录暂未加载\n点击重试，或关闭后继续游戏');
+                });
+            });
+        }
+        if (status) {
+            status.active = !!message;
+            status.getComponent(cc.Label).string = message;
+        }
      },
      ShowLeaderboard :function(entryArray)
      {
+        var prefab = this.utilManager && this.utilManager._LdEntry;
+        if (!prefab || !prefab.data) {
+            this._pendingEntries = entryArray;
+            this._recordWait = 0;
+            this.ldArray = [];
+            this.setRecordStatus('正在准备本机纪录…');
+            return false;
+        }
+        this._pendingEntries = null;
+        this.setRecordStatus('');
        // this.setLeaderboardUI(true);   
         this.ldArray =[];
         var offset =10;
@@ -182,7 +231,7 @@ var LeaderBoardManager = cc.Class({
         this.ViewContent.height =itemCount * (80 + this.ItemSpace) + this.ItemSpace;
        for(var i = 0; i< itemCount; i++)
        {
-           var Item = cc.instantiate(this.utilManager._LdEntry);
+           var Item = cc.instantiate(prefab);
            var sizeH =  Item.height;
          //  Item.parent = this.node;
            var posY = (sizeH+this.ItemSpace)*i*-1 - offset;
@@ -201,6 +250,8 @@ var LeaderBoardManager = cc.Class({
            this.ldArray[i]=  Item;
            this.ViewContent.addChild(Item);
         }
+
+        return true;
 
        //  this.loadImage(0,entryArray);
      },
@@ -233,12 +284,24 @@ var LeaderBoardManager = cc.Class({
         this._profile.sync();
     },
     onDisable:function() {
+        this._pendingEntries = null;
+        this.setRecordStatus('');
         if (this._profile) this._profile.hide();
     },
     onDestroy:function() {
         if (this._profile) this._profile.dispose();
     },
     update:function(dt) {
+        if (this._pendingEntries && this.node.activeInHierarchy) {
+            this._recordWait += dt;
+            var prefab = this.utilManager && this.utilManager._LdEntry;
+            if (prefab && prefab.data) {
+                var entries = this._pendingEntries;
+                if (this.ShowLeaderboard(entries)) this.showPlayerProfile();
+            } else if (this._recordWait >= 8 && !this._retryingRecord) {
+                this.setRecordStatus('本机纪录暂未加载\n点击重试，或关闭后继续游戏');
+            }
+        }
         this._profileTick = (this._profileTick || 0) + dt;
         if (this._profile && this._profileTick >= 0.25) {
             this._profileTick = 0;

@@ -41,10 +41,34 @@ try {
   const playerAfter = await page.evaluate(() => ({ x: cc.find('Player').x, y: cc.find('Player').y }));
   if (Math.abs(playerAfter.x-playerBefore.x) + Math.abs(playerAfter.y-playerBefore.y) < 1) errors.push('Player did not move after tutorial and touch');
   await page.screenshot({ path: path.join(root, 'artifacts/gameplay.png') });
+  const scoreCaption = await page.evaluate(() => {
+    const node = cc.find('CameraCon/Camera/deathboxUp/scoreName');
+    const caption = node.getChildByName('ChineseScoreCaption');
+    const value = node.getChildByName('Score');
+    const captionBounds = caption.getBoundingBoxToWorld();
+    const valueBounds = value.getBoundingBoxToWorld();
+    return {
+      oldPictureEnabled: node.getComponent(cc.Sprite).enabled,
+      text: caption.getComponent(cc.Label).string,
+      visible: caption.activeInHierarchy,
+      value: Number(value.getComponent(cc.Label).string),
+      score: cc.find('Map').getComponent('ScoreManager').PlayerScore,
+      separate: captionBounds.x + captionBounds.width <= valueBounds.x,
+      aligned: Math.abs(captionBounds.y + captionBounds.height / 2 - valueBounds.y - valueBounds.height / 2) < 1,
+    };
+  });
+  if (scoreCaption.oldPictureEnabled || scoreCaption.text !== '得分' || !scoreCaption.visible || scoreCaption.value !== scoreCaption.score || !scoreCaption.separate || !scoreCaption.aligned) errors.push('Gameplay score localization or numeric display failed: ' + JSON.stringify(scoreCaption));
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 2, { timeout: 25000 });
   await page.screenshot({ path: path.join(root, 'artifacts/gameover.png') });
   const mapBeforeRevive = await page.evaluate(() => cc.find('Map').__instanceId);
-  await page.touchscreen.tap(195, 420);
+  const revivePoint = await page.evaluate(() => {
+    const node = cc.find('CameraCon/Camera/UILayer/OverGame/AgainButton');
+    let rect = node.getBoundingBoxToWorld();
+    rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
+    const vp = cc.view.getViewPortRect(), frame = cc.view.getFrameSize(), dpr = cc.view.getDevicePixelRatio();
+    return { x: (vp.x + (rect.x + rect.width / 2) * cc.view.getScaleX()) / (frame.width * dpr) * innerWidth, y: innerHeight - (vp.y + (rect.y + rect.height / 2) * cc.view.getScaleY()) / (frame.height * dpr) * innerHeight };
+  });
+  await page.touchscreen.tap(revivePoint.x, revivePoint.y);
   await page.waitForTimeout(300);
   const revive = await page.evaluate(() => ({
     state: cc.find('Map').getComponent('UIManager')._CurrentState,

@@ -1,5 +1,5 @@
 // Keep the serialized component identity so the delivered scene remains valid.
-// This release uses local records and one free revive per run.
+// One free revive per run; the video placement measures intent without an ad SDK.
 var FacebookInstant = cc.Class({
     extends: cc.Component,
     statics: { _instance: null },
@@ -17,21 +17,29 @@ var FacebookInstant = cc.Class({
     },
     onShareGame: function () {
         if (typeof wx !== 'undefined' && wx.shareAppMessage) {
-            wx.shareAppMessage({ title: 'GoGoSnail：把握时机，跳向下一个圆！' });
+            wx.shareAppMessage({ title: require('ReleaseConfig').shareTitle });
         }
     },
     showLeaderboard: function () {
+        if (require('CloudRanking').enabled()) {
+            var self = this;
+            require('GlobalRankingPanel')(require('LeaderBoardManager')._instance, function () { self.showLocalLeaderboard(); });
+            return;
+        }
+        this.showLocalLeaderboard();
+    },
+    showLocalLeaderboard: function () {
         var board = require('LeaderBoardManager')._instance;
         board.ClearLeaderboard();
         board.node.active = true;
-        board.ShowLeaderboard([{ LName: '本机最高纪录', LRank: 1, LScore: require('ScoreManager')._instance.GetTopScore(), LPhoto: '' }]);
+        var ready = board.ShowLeaderboard([{ LName: '本机最高纪录', LRank: 1, LScore: require('ScoreManager')._instance.GetTopScore(), LPhoto: '' }]);
         board.globalButton.node.active = false;
         board.friendButton.node.active = false;
-        board.showPlayerProfile();
+        if (ready) board.showPlayerProfile();
     },
     showGobalLeaderBoard: function () { this.showLeaderboard(); },
     showInterstitialAD: function () { cc.find('Map').getComponent('GameLogic').restartGame(); },
-    showAD: function () { cc.find('Map').getComponent('GameLogic').CheckContinueGame(); },
+    showAD: function () { return cc.find('Map').getComponent('UIManager').ClaimRevive(); },
     invateGame: function () { cc.find('Map').getComponent('UIManager').EnterGame(); },
     // Retained for compatibility with existing scene events; no ad SDK is loaded.
     resetAD: function () {},
