@@ -90,19 +90,21 @@ var Presentation = cc.Class({
         var title = this.hidePicture(top + 'MMlogo');
         var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 580, 125, 82, 0, 40);
         this.heading = heading;
+        heading.zIndex = 20;
         this.bindings[this.bindings.length - 1].screen = function () { return cc.v2(presentation.homeLayout.titleX, presentation.homeLayout.titleY); };
         heading.getComponent(cc.Label).isBold = true;
         var outline = heading.addComponent(cc.LabelOutline);
         outline.color = cc.color(25, 53, 82);
-        outline.width = 4;
+        outline.width = 6;
         var mascot = new cc.Node('HomeSnailMascot');
         title.addChild(mascot);
         mascot.setContentSize(240, 160);
         var mascotSprite = mascot.addComponent(cc.Sprite);
         mascotSprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
         this.mascot = mascot;
+        mascot.zIndex = 0;
         this.bindings.push({ node: mascot, target: title, x: 0, y: 0,
-            screen: function () { return cc.v2(presentation.homeLayout.mascotX, presentation.homeLayout.titleY); } });
+            screen: function () { return cc.v2(presentation.homeLayout.mascotX, presentation.homeLayout.mascotY); } });
         function loadedMascot(error, asset) {
             if (error || !cc.isValid(mascot)) return;
             mascotSprite.spriteFrame = asset instanceof cc.SpriteFrame ? asset : new cc.SpriteFrame(asset);
@@ -116,6 +118,7 @@ var Presentation = cc.Class({
             cc.loader.loadRes('home-snail-rush', cc.SpriteFrame, loadedMascot);
         }
         this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
+        this.tagline.zIndex = 20;
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.taglineY); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
         this.startControl = cc.find(layer + 'startGame');
@@ -330,29 +333,29 @@ var Presentation = cc.Class({
     layoutHome: function (size) {
         var unit = size.width / 960;
         var compact = size.height / size.width < 1.6;
-        var width = size.width * 0.42;
-        var rowHalfHeight = width / 3;
-        var titleY = size.height - Math.max(320 * unit, size.height * 0.14);
+        // The screenshot used the original 240x160 mascot. Scale both axes
+        // exactly 3x at the same screen width, behind the centered lettering.
+        var width = 720 * unit;
+        var mascotY = size.height - Math.max(320 * unit, size.height * 0.14);
+        var titleY = mascotY - 180 * unit;
         try {
             if (typeof wx !== 'undefined' && wx.getMenuButtonBoundingClientRect) {
                 var capsule = wx.getMenuButtonBoundingClientRect();
                 var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
                 var pixel = size.height / (info && info.windowHeight || cc.view.getFrameSize().height || size.height);
-                if (capsule && capsule.bottom > 0) titleY = Math.min(titleY, size.height - (capsule.bottom + 12) * pixel - rowHalfHeight);
+                if (capsule && capsule.bottom > 0) titleY = Math.min(titleY, size.height - (capsule.bottom + 12) * pixel - 62.5 * unit);
             }
         } catch (_) { /* The responsive header remains usable without native metrics. */ }
-        var taglineY = titleY - rowHalfHeight - 55 * unit;
+        var taglineY = titleY - 120 * unit;
         var bestY = compact ? size.height - 705 * unit : size.height * 0.58;
-        // Center the combined row: 42% mascot canvas, 2% gap and 50% title.
-        // The transparent PNG's visible silhouette is about one third wide.
         this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
-            mascotX: size.width * 0.24, titleX: size.width * 0.72,
+            mascotX: size.width * 0.375, mascotY: mascotY, titleX: size.width / 2,
             startY: compact ? size.height - 865 * unit : size.height * 0.43,
             startCaptionGap: (compact ? 160 : 225) * unit, menuY: (compact ? 150 : 200) * unit };
         var label = this.heading.getComponent(cc.Label);
         label.fontSize = 82 * unit;
         label.lineHeight = 94 * unit;
-        this.heading.setContentSize(size.width * 0.50, 125 * unit);
+        this.heading.setContentSize(size.width * 0.88, 125 * unit);
         this.mascot.setContentSize(width, width * 2 / 3);
         this.tagline.setContentSize(size.width * 0.90, 65 * unit);
         this.startControl.setScale(compact ? 0.55 * unit : 0.9 * unit);
