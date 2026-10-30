@@ -119,6 +119,9 @@ var Presentation = cc.Class({
         }
         this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
         this.tagline.zIndex = 20;
+        var taglineOutline = this.tagline.addComponent(cc.LabelOutline);
+        taglineOutline.color = cc.color(25, 53, 82);
+        taglineOutline.width = 4;
         this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.taglineY); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
         this.startControl = cc.find(layer + 'startGame');
@@ -348,6 +351,9 @@ var Presentation = cc.Class({
         } catch (_) { /* The responsive header remains usable without native metrics. */ }
         var taglineY = titleY - 120 * unit;
         var bestY = compact ? size.height - 705 * unit : size.height * 0.58;
+        // Move the existing large illustration into the marked left title
+        // area. On short screens keep its bottom clear of the record row.
+        mascotY = Math.max(titleY - 20 * unit, bestY + 292 * unit);
         this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
             mascotX: size.width * 0.375, mascotY: mascotY, titleX: size.width / 2,
             startY: compact ? size.height - 865 * unit : size.height * 0.43,

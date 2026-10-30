@@ -73,7 +73,11 @@ try {
     assert.ok(await page.evaluate(p => { const title = cc.find(p), mascot = title.parent.getChildByName('HomeSnailMascot'); return title.zIndex > mascot.zIndex; }, top + 'MMlogo/OfficialGameTitle'), 'Title is explicitly drawn above the large mascot');
     assert.ok(Math.abs(mascotBounds.width / mascotBounds.height - 1.5) < 0.01, 'Mascot keeps original proportions');
     assert.ok(titleBounds.y > taglineBounds.y + taglineBounds.height, 'Title and subtitle do not overlap');
-    assert.ok(mascotBounds.y > taglineBounds.y + taglineBounds.height, 'Subtitle stays below the mascot without overlap');
+    if (width === 390 || width === 430) {
+      const screenHeight = await page.evaluate(() => cc.view.getVisibleSize().height);
+      const centerFromTop = (screenHeight - mascotBounds.y - mascotBounds.height / 2) / screenHeight;
+      assert.ok(Math.abs(centerFromTop - 0.256) < 0.025, 'Mascot center follows the user marked region about one quarter down the screen');
+    }
     assert.ok(mascotBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Mascot stays above record text');
     assert.ok(taglineBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Subtitle stays above record text');
     await page.screenshot({ path: path.join(out, `menu-${width}x${height}.png`) });
@@ -85,19 +89,23 @@ try {
       await page.waitForTimeout(80);
       const withoutMascot = PNG.sync.read(await page.screenshot());
       const screenHeight = await page.evaluate(() => cc.view.getVisibleSize().height);
-      let outlinePixels = 0, preserved = 0;
-      for (let y = Math.max(0, Math.floor((screenHeight - titleBounds.y - titleBounds.height) / screenHeight * foreground.height)); y < Math.min(foreground.height, Math.ceil((screenHeight - titleBounds.y) / screenHeight * foreground.height)); y++) {
-        for (let x = Math.max(0, Math.floor(titleBounds.x / screenWidth * foreground.width)); x < Math.min(foreground.width, Math.ceil((titleBounds.x + titleBounds.width) / screenWidth * foreground.width)); x++) {
+      const samples = [];
+      for (const rect of [titleBounds, taglineBounds]) {
+        let outlinePixels = 0, preserved = 0;
+        for (let y = Math.max(0, Math.floor((screenHeight - rect.y - rect.height) / screenHeight * foreground.height)); y < Math.min(foreground.height, Math.ceil((screenHeight - rect.y) / screenHeight * foreground.height)); y++) {
+          for (let x = Math.max(0, Math.floor(rect.x / screenWidth * foreground.width)); x < Math.min(foreground.width, Math.ceil((rect.x + rect.width) / screenWidth * foreground.width)); x++) {
           const i = (y * foreground.width + x) * 4;
           if ([25, 53, 82].every((v, c) => Math.abs(withoutMascot.data[i + c] - v) <= 2)) {
             outlinePixels++;
             if ([0, 1, 2].every(c => Math.abs(foreground.data[i + c] - withoutMascot.data[i + c]) <= 3)) preserved++;
           }
+          }
         }
+        assert.ok(outlinePixels > 20 && preserved / outlinePixels > 0.98, 'Actual title and subtitle outline remain visible above the overlapping mascot');
+        samples.push({ path: rect.path, outlinePixels, preserved });
       }
-      assert.ok(outlinePixels > 20 && preserved / outlinePixels > 0.98, 'Actual title outline remains visible above the overlapping mascot');
       await page.evaluate(p => { cc.find(p).getComponent(cc.Sprite).enabled = true; }, top + 'MMlogo/HomeSnailMascot');
-      checks.push({ name: 'Rendered foreground title pixels stay intact when the large mascot overlaps behind them', outlinePixels, preserved });
+      checks.push({ name: 'Rendered title and subtitle pixels stay intact when the repositioned mascot overlaps behind them', samples });
     }
     for (const [link, expected] of [['AgePrompt', '8+ 适龄提示'], ['HealthPrompt', '健康游戏忠告']]) {
       await tapNode(host + 'ChineseSafetyLinks/' + link);
@@ -200,7 +208,7 @@ try {
   await tapNode(layer + 'startGame');
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 1);
   assert.equal(await page.evaluate(p => cc.find(p).activeInHierarchy, top + 'MMlogo/HomeSnailMascot'), false, 'Homepage mascot is hidden during gameplay');
-  checks.push({ name: 'Title itself centered, left mascot at 3x screenshot size behind text, subtitle separation across five sizes, local resource and gameplay hiding' });
+  checks.push({ name: 'Mascot moved into marked left title region, size retained, centered foreground text, record separation and gameplay hiding across five sizes' });
   checks.push({ name: 'Compact tablet layout still starts gameplay with a real touch on the resized play button' });
   assert.deepEqual(errors, []);
 } catch (error) {
