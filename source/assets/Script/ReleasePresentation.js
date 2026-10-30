@@ -355,7 +355,9 @@ var Presentation = cc.Class({
         // area. On short screens keep its bottom clear of the record row.
         mascotY = Math.max(titleY - 20 * unit, bestY + 292 * unit);
         this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
-            mascotX: size.width * 0.375, mascotY: mascotY, titleX: size.width / 2,
+            // Align the visible snail body to the marked 13%-59% band.
+            // The PNG also includes transparent padding and trailing streaks.
+            mascotX: size.width * 0.2875, mascotY: mascotY, titleX: size.width / 2,
             startY: compact ? size.height - 865 * unit : size.height * 0.43,
             startCaptionGap: (compact ? 160 : 225) * unit, menuY: (compact ? 150 : 200) * unit };
         var label = this.heading.getComponent(cc.Label);

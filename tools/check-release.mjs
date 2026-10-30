@@ -63,12 +63,18 @@ try {
         return { path, x: rect.x, y: rect.y, width: rect.width, height: rect.height, inside: rect.x >= -0.001 && rect.y >= -0.001 && rect.x + rect.width <= size.width + 0.001 && rect.y + rect.height <= size.height + 0.001 };
       });
     });
-    assert.ok(bounds.every(b => b.inside), 'Title and bottom captions stay inside viewport: ' + JSON.stringify(bounds));
+    assert.ok(bounds.filter(b => !b.path.endsWith('HomeSnailMascot')).every(b => b.inside), 'All text stays inside viewport: ' + JSON.stringify(bounds));
     const [titleBounds, mascotBounds, taglineBounds, bestBounds, valueBounds] = bounds;
     const screenWidth = await page.evaluate(() => cc.view.getVisibleSize().width);
     assert.ok(Math.abs(titleBounds.x + titleBounds.width / 2 - screenWidth / 2) < 1, 'Title text itself centers on screen');
     assert.ok(Math.abs(taglineBounds.x + taglineBounds.width / 2 - screenWidth / 2) < 1, 'Subtitle centers on screen');
     assert.ok(mascotBounds.x + mascotBounds.width / 2 < screenWidth / 2, 'Mascot remains on the left');
+    // Bounds of the largest alpha>=220 connected component in the unchanged
+    // 1536x1024 PNG: x=440..1381, y=104..913. Exclude trailing speed strokes
+    // when comparing the visible character with the user's red rectangle.
+    const bodyLeft = (mascotBounds.x + mascotBounds.width * 440 / 1536) / screenWidth;
+    const bodyRight = (mascotBounds.x + mascotBounds.width * 1382 / 1536) / screenWidth;
+    assert.ok(bodyLeft >= 0.11 && bodyLeft <= 0.15 && bodyRight >= 0.57 && bodyRight <= 0.61, 'Visible snail body follows the marked left region, not a centered sprite canvas');
     assert.ok(Math.abs(mascotBounds.width / screenWidth - 0.75) < 0.001, 'Mascot is exactly 3x the screenshot 240/960 width');
     assert.ok(await page.evaluate(p => { const title = cc.find(p), mascot = title.parent.getChildByName('HomeSnailMascot'); return title.zIndex > mascot.zIndex; }, top + 'MMlogo/OfficialGameTitle'), 'Title is explicitly drawn above the large mascot');
     assert.ok(Math.abs(mascotBounds.width / mascotBounds.height - 1.5) < 0.01, 'Mascot keeps original proportions');
@@ -77,6 +83,9 @@ try {
       const screenHeight = await page.evaluate(() => cc.view.getVisibleSize().height);
       const centerFromTop = (screenHeight - mascotBounds.y - mascotBounds.height / 2) / screenHeight;
       assert.ok(Math.abs(centerFromTop - 0.256) < 0.025, 'Mascot center follows the user marked region about one quarter down the screen');
+      const bodyTop = (screenHeight - mascotBounds.y - mascotBounds.height + mascotBounds.height * 104 / 1024) / screenHeight;
+      const bodyBottom = (screenHeight - mascotBounds.y - mascotBounds.height + mascotBounds.height * 914 / 1024) / screenHeight;
+      assert.ok(bodyTop >= 0.13 && bodyBottom <= 0.37, 'Snail body also stays inside the marked vertical region');
     }
     assert.ok(mascotBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Mascot stays above record text');
     assert.ok(taglineBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Subtitle stays above record text');
