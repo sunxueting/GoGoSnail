@@ -54,7 +54,7 @@ try {
     assert.equal(await page.evaluate(p => cc.find(p).getComponent(cc.Label).string, top + 'MMlogo/OfficialGameTitle'), release.displayName);
     assert.equal(await page.evaluate(p => cc.find(p).getComponent(cc.Sprite).enabled, top + 'MMlogo'), false, 'Old English image title is hidden');
     const bounds = await page.evaluate(() => {
-      const paths = ['CameraCon/Camera/deathboxUp/MMlogo/OfficialGameTitle', 'CameraCon/Camera/deathboxUp/MMlogo/HomeSnailMascot', 'CameraCon/Camera/deathboxBottom/Setting/ChineseCaption', 'CameraCon/Camera/deathboxBottom/Tutotail/ChineseCaption', 'CameraCon/Camera/deathboxBottom/LeaderBoard/ChineseCaption'];
+      const paths = ['CameraCon/Camera/deathboxUp/MMlogo/OfficialGameTitle', 'CameraCon/Camera/deathboxUp/MMlogo/HomeSnailMascot', 'CameraCon/Camera/deathboxUp/MMlogo/GameTagline', 'CameraCon/Camera/UILayer/Top/TopScoreLable/best/ChineseBest', 'CameraCon/Camera/UILayer/Top/score/ChineseBestValue', 'CameraCon/Camera/deathboxBottom/Setting/ChineseCaption', 'CameraCon/Camera/deathboxBottom/Tutotail/ChineseCaption', 'CameraCon/Camera/deathboxBottom/LeaderBoard/ChineseCaption'];
       const size = cc.view.getVisibleSize();
       return paths.map(path => {
         const node = cc.find(path);
@@ -64,9 +64,16 @@ try {
       });
     });
     assert.ok(bounds.every(b => b.inside), 'Title and bottom captions stay inside viewport: ' + JSON.stringify(bounds));
-    const [titleBounds, mascotBounds] = bounds;
-    assert.ok(mascotBounds.x + mascotBounds.width < titleBounds.x, 'Mascot stays left of the title without overlap');
-    assert.ok(Math.abs(mascotBounds.y + mascotBounds.height / 2 - titleBounds.y - titleBounds.height / 2) < 1, 'Mascot and title centers align');
+    const [titleBounds, mascotBounds, taglineBounds, bestBounds, valueBounds] = bounds;
+    const screenWidth = await page.evaluate(() => cc.view.getVisibleSize().width);
+    for (const rect of [titleBounds, mascotBounds, taglineBounds]) {
+      assert.ok(Math.abs(rect.x + rect.width / 2 - screenWidth / 2) < 1, 'Title, mascot and subtitle each center on the screen');
+    }
+    assert.ok(mascotBounds.width / screenWidth >= 0.38 && mascotBounds.width / screenWidth <= 0.43, 'Enlarged mascot canvas preserves roughly one third screen silhouette');
+    assert.ok(Math.abs(mascotBounds.width / mascotBounds.height - 1.5) < 0.01, 'Mascot keeps original proportions');
+    assert.ok(titleBounds.y > taglineBounds.y + taglineBounds.height, 'Title and subtitle do not overlap');
+    assert.ok(taglineBounds.y > mascotBounds.y + mascotBounds.height, 'Mascot stays below subtitle without covering text');
+    assert.ok(mascotBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Mascot stays above record text');
     await page.screenshot({ path: path.join(out, `menu-${width}x${height}.png`) });
     for (const [link, expected] of [['AgePrompt', '8+ 适龄提示'], ['HealthPrompt', '健康游戏忠告']]) {
       await tapNode(host + 'ChineseSafetyLinks/' + link);
@@ -82,6 +89,25 @@ try {
     }
     checks.push({ name: 'Chinese official title and working age/health dialogs', width, height });
   }
+  await page.evaluate(() => {
+    window.wx = {
+      getWindowInfo: () => ({ windowWidth: innerWidth, windowHeight: innerHeight }),
+      getMenuButtonBoundingClientRect: () => ({ bottom: 82 })
+    };
+  });
+  await page.setViewportSize({ width: 393, height: 911 });
+  await page.waitForTimeout(300);
+  const titleTop = await page.evaluate(p => {
+    const node = cc.find(p);
+    let rect = node.getBoundingBoxToWorld();
+    if (cc.Camera.main.containsNode(node)) rect = cc.rectApplyAffineTransform(rect, cc.Camera.main.viewMatrix);
+    const size = cc.view.getVisibleSize();
+    return (size.height - rect.y - rect.height) / size.height * innerHeight;
+  }, top + 'MMlogo/OfficialGameTitle');
+  assert.ok(titleTop >= 93, 'Entire title stays below native capsule with a 12px gap');
+  await page.screenshot({ path: path.join(out, 'menu-393x911-capsule.png') });
+  await page.evaluate(() => { delete window.wx; });
+  checks.push({ name: 'Centered title avoids the native WeChat capsule on a tall phone' });
   await page.setViewportSize({ width: 390, height: 844 });
   const share = await page.evaluate(() => {
     let captured;
@@ -144,11 +170,14 @@ try {
   await page.evaluate(() => {
     cc.find('Map').getComponent('UIManager').SubBackMM();
     localStorage.setItem('TutorailFinished', 'true');
-    cc.find('Map').getComponent('GameLogic').startGame();
   });
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.waitForTimeout(300);
+  await tapNode(layer + 'startGame');
   await page.waitForFunction(() => cc.find('Map').getComponent('UIManager')._CurrentState === 1);
   assert.equal(await page.evaluate(p => cc.find(p).activeInHierarchy, top + 'MMlogo/HomeSnailMascot'), false, 'Homepage mascot is hidden during gameplay');
-  checks.push({ name: 'Rushing mascot loads from local package, aligns with shortened title across five sizes, and stays off gameplay' });
+  checks.push({ name: 'Centered responsive title, enlarged mascot without text overlap across five sizes, local packaged resource and gameplay hiding' });
+  checks.push({ name: 'Compact tablet layout still starts gameplay with a real touch on the resized play button' });
   assert.deepEqual(errors, []);
 } catch (error) {
   errors.push(error.stack || error.message);

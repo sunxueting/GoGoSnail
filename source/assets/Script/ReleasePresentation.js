@@ -90,7 +90,7 @@ var Presentation = cc.Class({
         var title = this.hidePicture(top + 'MMlogo');
         var heading = this.bind(title, 'OfficialGameTitle', release.displayName, 580, 125, 82, 0, 40);
         this.heading = heading;
-        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2 + 120, size.height - 320); };
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.titleY); };
         heading.getComponent(cc.Label).isBold = true;
         var outline = heading.addComponent(cc.LabelOutline);
         outline.color = cc.color(25, 53, 82);
@@ -102,11 +102,10 @@ var Presentation = cc.Class({
         mascotSprite.sizeMode = cc.Sprite.SizeMode.CUSTOM;
         this.mascot = mascot;
         this.bindings.push({ node: mascot, target: title, x: 0, y: 0,
-            screen: function (size) { return cc.v2(size.width / 2 - 310, size.height - 320); } });
+            screen: function (size) { return cc.v2(size.width / 2, presentation.homeLayout.mascotY); } });
         function loadedMascot(error, asset) {
             if (error || !cc.isValid(mascot)) return;
             mascotSprite.spriteFrame = asset instanceof cc.SpriteFrame ? asset : new cc.SpriteFrame(asset);
-            mascot.setContentSize(240, 160);
             presentation._layoutWarmup = 3;
         }
         // Restored builds copy this resource into the local asset subpackage;
@@ -117,7 +116,7 @@ var Presentation = cc.Class({
             cc.loader.loadRes('home-snail-rush', cc.SpriteFrame, loadedMascot);
         }
         this.tagline = this.bind(title, 'GameTagline', online ? '轻点起跳 · 挑战全服排行榜' : '轻点起跳 · 挑战本机最高纪录', 860, 65, 34, 0, -70, cc.color(208, 239, 249));
-        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, size.height - 440); };
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.taglineY); };
         this.menuControls = [cc.find(bottom + 'Setting'), cc.find(bottom + 'Tutotail'), cc.find(bottom + 'LeaderBoard')];
         this.startControl = cc.find(layer + 'startGame');
         // A static menu button needs no per-frame inverse-scale text layout.
@@ -147,7 +146,7 @@ var Presentation = cc.Class({
         for (var i = 0; i < bestPaths.length; i++) {
             this.hidePicture(bestPaths[i]);
             this.bind(bestPaths[i], 'ChineseBest', i === 1 ? function () { return score._lsNewRecord ? '个人新纪录' : '个人纪录'; } : online ? '全服最高' : '个人纪录', 220, 80, 36);
-            if (i === 0) this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.43, size.height * 0.58); };
+            if (i === 0) this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.43, presentation.homeLayout.bestY); };
             else this.bindings[this.bindings.length - 1].screen = function () { return presentation.overGameLayout.bestCaption; };
         }
         var mainScore = cc.find(layer + 'Top/score');
@@ -158,13 +157,14 @@ var Presentation = cc.Class({
             return snapshot.status === 'ready' && snapshot.data && snapshot.data.highest !== null ? String(snapshot.data.highest) : '—';
         }, 160, 80, 48, 0, 0, cc.color(255, 110, 95));
         this.bindings[this.bindings.length - 1].onEnterOnly = true;
-        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.64, size.height * 0.58); };
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width * 0.64, presentation.homeLayout.bestY); };
         var tutorial = cc.find(bottom + 'Tutotail/TutorialFont');
         if (tutorial) tutorial.active = false;
         this.bind(bottom + 'Setting', 'ChineseCaption', '设置', 200, 55, 34, 0, -110);
         this.bind(bottom + 'Tutotail', 'ChineseCaption', '玩法', 200, 55, 34, 0, -110);
         this.bind(bottom + 'LeaderBoard', 'ChineseCaption', online ? '全服排名' : '本机纪录', 220, 55, 34, 0, -110);
         this.bind(layer + 'startGame', 'ChineseCaption', '开始游戏', 330, 65, 42, 0, -225);
+        this.bindings[this.bindings.length - 1].screen = function (size) { return cc.v2(size.width / 2, presentation.homeLayout.startY - presentation.homeLayout.startCaptionGap); };
 
         var again = this.hidePicture(layer + 'OverGame/AgainButton', true);
         this.again = again;
@@ -327,6 +327,36 @@ var Presentation = cc.Class({
         close.on(cc.Node.EventType.TOUCH_END, function (event) { event.stopPropagation(); panel.destroy(); self.notice = null; });
         this.notice = panel;
     },
+    layoutHome: function (size) {
+        var unit = size.width / 960;
+        var compact = size.height / size.width < 1.6;
+        var titleY = size.height - (compact ? 215 * unit : Math.min(320 * unit, Math.max(190 * unit, size.height * 0.12)));
+        try {
+            if (typeof wx !== 'undefined' && wx.getMenuButtonBoundingClientRect) {
+                var capsule = wx.getMenuButtonBoundingClientRect();
+                var info = wx.getWindowInfo ? wx.getWindowInfo() : wx.getSystemInfoSync ? wx.getSystemInfoSync() : null;
+                var pixel = size.height / (info && info.windowHeight || cc.view.getFrameSize().height || size.height);
+                if (capsule && capsule.bottom > 0) titleY = Math.min(titleY, size.height - (capsule.bottom + 12) * pixel - 62.5 * unit);
+            }
+        } catch (_) { /* The responsive header remains usable without native metrics. */ }
+        var taglineY = titleY - 100 * unit;
+        var bestY = compact ? size.height - 705 * unit : size.height * 0.58;
+        // Reserve separate bands for subtitle, mascot and record. The PNG's
+        // visible silhouette occupies roughly one third of the screen width.
+        var top = taglineY - 65 * unit;
+        var bottom = bestY + 65 * unit;
+        var width = Math.min(size.width * 0.42, Math.max(0, top - bottom) * 1.5);
+        this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
+            mascotY: (top + bottom) / 2, startY: compact ? size.height - 865 * unit : size.height * 0.43,
+            startCaptionGap: (compact ? 160 : 225) * unit, menuY: (compact ? 150 : 200) * unit };
+        var label = this.heading.getComponent(cc.Label);
+        label.fontSize = 82 * unit;
+        label.lineHeight = 94 * unit;
+        this.heading.setContentSize(size.width * 0.88, 125 * unit);
+        this.mascot.setContentSize(width, width * 2 / 3);
+        this.tagline.setContentSize(size.width * 0.90, 65 * unit);
+        this.startControl.setScale(compact ? 0.55 * unit : 0.9 * unit);
+    },
     lateUpdate: function () {
         if (!this.bindings) return;
         var size = cc.view.getVisibleSize();
@@ -336,7 +366,7 @@ var Presentation = cc.Class({
         // those transforms settle for two frames after a scene/state/size change.
         var dirty = this._layoutWarmup > 0;
         if (dirty) this._layoutWarmup--;
-        if (dirty) this.layoutGameOver(size);
+        if (dirty) { this.layoutGameOver(size); this.layoutHome(size); }
         this.safety.active = state === 0;
         this.heading.active = state === 0;
         this.mascot.active = state === 0;
@@ -345,9 +375,9 @@ var Presentation = cc.Class({
         this.resourceStatus.active = this.ui.WaitBar.activeInHierarchy;
         if (dirty && state === 0) {
             for (var control = 0; control < this.menuControls.length; control++) {
-                moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), 200));
+                moveToScreen(this.menuControls[control], cc.v2(size.width * (0.18 + control * 0.32), this.homeLayout.menuY));
             }
-            moveToScreen(this.startControl, cc.v2(size.width / 2, size.height * 0.43));
+            moveToScreen(this.startControl, cc.v2(size.width / 2, this.homeLayout.startY));
         }
         for (var i = 0; i < this.bindings.length; i++) {
             var binding = this.bindings[i];
