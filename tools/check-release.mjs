@@ -79,18 +79,10 @@ try {
     assert.ok(await page.evaluate(p => { const title = cc.find(p), mascot = title.parent.getChildByName('HomeSnailMascot'); return title.zIndex > mascot.zIndex; }, top + 'MMlogo/OfficialGameTitle'), 'Title is explicitly drawn above the large mascot');
     assert.ok(Math.abs(mascotBounds.width / mascotBounds.height - 1.5) < 0.01, 'Mascot keeps original proportions');
     assert.ok(titleBounds.y > taglineBounds.y + taglineBounds.height, 'Title and subtitle do not overlap');
-    if (width === 390 || width === 430) {
-      const screenHeight = await page.evaluate(() => cc.view.getVisibleSize().height);
-      const centerFromTop = (screenHeight - mascotBounds.y - mascotBounds.height / 2) / screenHeight;
-      assert.ok(Math.abs(centerFromTop - 0.256) < 0.025, 'Mascot center follows the user marked region about one quarter down the screen');
-      const bodyTop = (screenHeight - mascotBounds.y - mascotBounds.height + mascotBounds.height * 104 / 1024) / screenHeight;
-      const bodyBottom = (screenHeight - mascotBounds.y - mascotBounds.height + mascotBounds.height * 914 / 1024) / screenHeight;
-      assert.ok(bodyTop >= 0.13 && bodyBottom <= 0.37, 'Snail body also stays inside the marked vertical region');
-    }
     assert.ok(mascotBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Mascot stays above record text');
     assert.ok(taglineBounds.y > Math.max(bestBounds.y + bestBounds.height, valueBounds.y + valueBounds.height), 'Subtitle stays above record text');
     await page.screenshot({ path: path.join(out, `menu-${width}x${height}.png`) });
-    if (width === 390) {
+    {
       // Compare the actual opaque outline pixels with/without the decorative
       // sprite. A reversed draw order would paint the white snail over them.
       const foreground = PNG.sync.read(await page.screenshot());
@@ -100,18 +92,24 @@ try {
       const screenHeight = await page.evaluate(() => cc.view.getVisibleSize().height);
       const samples = [];
       for (const rect of [titleBounds, taglineBounds]) {
-        let outlinePixels = 0, preserved = 0;
+        let outlinePixels = 0, preserved = 0, glyphBottom = 0;
         for (let y = Math.max(0, Math.floor((screenHeight - rect.y - rect.height) / screenHeight * foreground.height)); y < Math.min(foreground.height, Math.ceil((screenHeight - rect.y) / screenHeight * foreground.height)); y++) {
           for (let x = Math.max(0, Math.floor(rect.x / screenWidth * foreground.width)); x < Math.min(foreground.width, Math.ceil((rect.x + rect.width) / screenWidth * foreground.width)); x++) {
           const i = (y * foreground.width + x) * 4;
           if ([25, 53, 82].every((v, c) => Math.abs(withoutMascot.data[i + c] - v) <= 2)) {
             outlinePixels++;
+            glyphBottom = Math.max(glyphBottom, y + 1);
             if ([0, 1, 2].every(c => Math.abs(foreground.data[i + c] - withoutMascot.data[i + c]) <= 3)) preserved++;
           }
           }
         }
         assert.ok(outlinePixels > 20 && preserved / outlinePixels > 0.98, 'Actual title and subtitle outline remain visible above the overlapping mascot');
         samples.push({ path: rect.path, outlinePixels, preserved });
+        if (rect === titleBounds) {
+          const footBottom = (screenHeight - mascotBounds.y - mascotBounds.height + mascotBounds.height * 914 / 1024) / screenHeight * foreground.height;
+          assert.ok(Math.abs(footBottom - glyphBottom) <= 3, 'Visible snail foot aligns with rendered title glyph bottom within 3 screen pixels');
+          checks.push({ name: 'Visible foot aligns with actual rendered title bottom', width, height, footBottom, glyphBottom });
+        }
       }
       await page.evaluate(p => { cc.find(p).getComponent(cc.Sprite).enabled = true; }, top + 'MMlogo/HomeSnailMascot');
       checks.push({ name: 'Rendered title and subtitle pixels stay intact when the repositioned mascot overlaps behind them', samples });

@@ -351,9 +351,11 @@ var Presentation = cc.Class({
         } catch (_) { /* The responsive header remains usable without native metrics. */ }
         var taglineY = titleY - 120 * unit;
         var bestY = compact ? size.height - 705 * unit : size.height * 0.58;
-        // Move the existing large illustration into the marked left title
-        // area. On short screens keep its bottom clear of the record row.
-        mascotY = Math.max(titleY - 20 * unit, bestY + 292 * unit);
+        // Align the opaque foot, not the transparent canvas edge, with the
+        // title's outlined glyph bottom (37 units below its visual center).
+        // The unchanged PNG's main opaque silhouette ends at row 914/1024.
+        var footFromCenter = (914 / 1024 - 0.5) * (width * 2 / 3);
+        mascotY = titleY - 37 * unit + footFromCenter;
         this.homeLayout = { titleY: titleY, taglineY: taglineY, bestY: bestY,
             // Align the visible snail body to the marked 13%-59% band.
             // The PNG also includes transparent padding and trailing streaks.
